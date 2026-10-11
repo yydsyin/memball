@@ -4,6 +4,8 @@
 
 Windows 内存悬浮球：在屏幕边上显示内存占用和实时网速，单击一下就能清理内存。
 
+![MemBall 演示：清理、贴边、缩进](screenshots/demo-zh.gif)
+
 ![MemBall：悬浮球、右键菜单和设置](screenshots/zh.png)
 
 ## 功能
