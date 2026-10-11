@@ -4,7 +4,7 @@
 
 A floating memory ball for Windows: it shows memory use and live network speed at the edge of your screen, and cleans memory in one click.
 
-<!-- Screenshot: coming soon -->
+![MemBall: the ball, its right-click menu and settings](screenshots/en.png)
 
 ## Features
 

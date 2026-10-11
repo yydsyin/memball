@@ -4,7 +4,7 @@
 
 Une boule flottante pour Windows : elle affiche la mémoire utilisée et le débit réseau en direct au bord de l'écran, et nettoie la mémoire en un clic.
 
-<!-- Capture d'écran : bientôt -->
+![MemBall : la boule, son menu du clic droit et les paramètres](screenshots/fr.png)
 
 ## Fonctionnalités
 
