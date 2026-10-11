@@ -1,0 +1,10 @@
+# Build output
+*.exe
+*.pdb
+
+# Debug renders (MemBall.exe --png / --menu) and exported reports
+*.png
+MemBall-日志-*.txt
+
+# Temporary files
+*.tmp
