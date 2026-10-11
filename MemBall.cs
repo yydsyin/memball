@@ -16,7 +16,7 @@ using Microsoft.Win32;
 
 [assembly: System.Reflection.AssemblyTitle("MemBall")]
 [assembly: System.Reflection.AssemblyProduct("MemBall")]
-[assembly: System.Reflection.AssemblyDescription("内存悬浮球")]
+[assembly: System.Reflection.AssemblyDescription("Floating memory ball")]
 [assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
 [assembly: System.Reflection.AssemblyFileVersion("1.0.0.0")]
 [assembly: System.Reflection.AssemblyInformationalVersion("1.0.0")]
@@ -75,6 +75,9 @@ class MemBall : Form
     static readonly string DataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemBall");
     static readonly string PosFile = Path.Combine(DataDir, "pos.txt");
     static readonly string LogFile = Path.Combine(DataDir, "error.log");
+    static readonly string SettingsFile = Path.Combine(DataDir, "settings.txt");
+    internal Settings settings;
+    SettingsForm settingsForm;
 
     // Logical layout (96 dpi units)
     const float Margin_ = 5, PanelW = 41.7f, PanelH = 160.2f, Radius = 20.85f, RadiusTop = 7.5f;
@@ -92,7 +95,8 @@ class MemBall : Form
     volatile bool cleanWorkDone;
     bool cleaning;
     DateTime cleanStart, resultStart = DateTime.MinValue;
-    string freedText, freedLabel;
+    int cleanResult;  // 0 freed (freedText holds the amount), 1 already optimal, 2 failed
+    string freedText;
     const double MinCleanMs = 750, ResultMs = 2600, PulseMs = 700;
 
     // Visibility: hidden by the user (menu / hotkey) or automatically while a full-screen app is in front.
@@ -107,7 +111,6 @@ class MemBall : Form
     float slide, slideTarget; // 0 = fully out, 1 = tucked in
     DateTime lastNear = DateTime.Now;
     const float SlideMs = 220;
-    const double TuckDelayMs = 1500;
     const float SnapDist = 36f; // dropping the panel this close to a side edge docks it
 
     const int HotkeyId = 1;
@@ -123,7 +126,7 @@ class MemBall : Form
     bool dragging, hover, hoverBadge, pressed;
     DateTime hoverStart;
     Timer sampleTimer, animTimer, dockTimer;
-    ToolStripMenuItem autoItem, hideItem;
+    ToolStripMenuItem cleanItem, hideItem, settingsItem, exitItem, trayExitItem;
 
     MemBall()
     {
@@ -138,18 +141,18 @@ class MemBall : Form
         Size = new Size(S((double)(PanelW + Margin_ * 2)), S((double)(PanelH + Margin_ * 2)));
         Location = LoadPos();
 
+        settings = Settings.Load(SettingsFile);
+        Lang.Code = Lang.Resolve(settings.Language);
+
         ContextMenuStrip menu = new ContextMenuStrip();
-        menu.Items.Add("清理内存", null, delegate { Clean(); });
-        hideItem = new ToolStripMenuItem("暂时隐藏", null, delegate { SetUserHidden(!userHidden); });
-        menu.Items.Add(hideItem);
-        autoItem = new ToolStripMenuItem("开机自启", null, delegate { ToggleAutostart(); });
-        autoItem.Checked = AutostartExists();
-        menu.Items.Add(autoItem);
-        menu.Items.Add("导出错误日志…", null, delegate { ExportLog(); });
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("退出", null, delegate { Exit(); });
-        menu.Opening += delegate { hideItem.Text = userHidden ? "显示悬浮球" : "暂时隐藏"; FillStats(menu); };
+        cleanItem = new ToolStripMenuItem("", null, delegate { Clean(); });
+        hideItem = new ToolStripMenuItem("", null, delegate { SetUserHidden(!userHidden); });
+        settingsItem = new ToolStripMenuItem("", null, delegate { OpenSettings(); });
+        exitItem = new ToolStripMenuItem("", null, delegate { Exit(); });
+        menu.Items.AddRange(new ToolStripItem[] { cleanItem, hideItem, settingsItem, new ToolStripSeparator(), exitItem });
+        menu.Opening += delegate { ApplyLanguage(); FillStats(menu); };
         ContextMenuStrip = menu;
+        ApplyLanguage();
 
         sampleTimer = new Timer();
         sampleTimer.Interval = 1000;
@@ -176,14 +179,14 @@ class MemBall : Form
         MEMSTATUS m = new MEMSTATUS();
         if (GlobalMemoryStatusEx(m))
         {
-            ToolStripMenuItem total = new ToolStripMenuItem("内存占用 " + m.dwMemoryLoad + "%");
+            ToolStripMenuItem total = new ToolStripMenuItem(Lang.T("menu.memory", m.dwMemoryLoad));
             total.ShortcutKeyDisplayString = ((m.ullTotalPhys - m.ullAvailPhys) / 1073741824.0).ToString("0.0") + " / " + (m.ullTotalPhys / 1073741824.0).ToString("0.0") + " GB";
             total.Enabled = false;
             statItems.Add(total);
             statItems.Add(new ToolStripSeparator());
         }
 
-        ToolStripMenuItem head = new ToolStripMenuItem("占用最多的程序");
+        ToolStripMenuItem head = new ToolStripMenuItem(Lang.T("menu.top"));
         head.Enabled = false;
         statItems.Add(head);
         foreach (AppUsage app in TopProcesses(5))
@@ -192,11 +195,11 @@ class MemBall : Form
             AppUsage a = app;
             ToolStripMenuItem it = new ToolStripMenuItem("   " + a.Label, null, delegate { KillApp(a); });
             it.ShortcutKeyDisplayString = FormatBytes(a.Bytes);
-            if (IsProtected(a.Name)) { it.Enabled = false; it.ToolTipText = "系统进程，不能结束"; }
-            else it.ToolTipText = a.Pids.Count > 1 ? "点击结束全部 " + a.Pids.Count + " 个进程" : "点击结束进程";
+            if (IsProtected(a.Name)) { it.Enabled = false; it.ToolTipText = Lang.T("proc.protected"); }
+            else it.ToolTipText = a.Pids.Count > 1 ? Lang.T("proc.killAll", a.Pids.Count) : Lang.T("proc.killOne");
             statItems.Add(it);
         }
-        statItems.Add(new ToolStripMenuItem("打开任务管理器", null, delegate { OpenTaskManager(); }));
+        statItems.Add(new ToolStripMenuItem(Lang.T("menu.taskmgr"), null, delegate { OpenTaskManager(); }));
         statItems.Add(new ToolStripSeparator());
 
         for (int i = 0; i < statItems.Count; i++) menu.Items.Insert(i, statItems[i]);
@@ -226,10 +229,8 @@ class MemBall : Form
     // Ends every process of the program after a confirmation (unsaved work in it is lost).
     void KillApp(AppUsage a)
     {
-        string msg = "确定要结束“" + a.Label + "”吗？\n\n" +
-                     (a.Pids.Count > 1 ? "共 " + a.Pids.Count + " 个进程，" : "") + "占用 " + FormatBytes(a.Bytes) + "。\n" +
-                     "该程序中未保存的内容会丢失。";
-        if (MessageBox.Show(this, msg, "结束进程", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+        string msg = Lang.T("kill.confirm", a.Label, a.Pids.Count > 1 ? Lang.T("kill.count", a.Pids.Count) : "", FormatBytes(a.Bytes));
+        if (MessageBox.Show(this, msg, Lang.T("kill.title"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
             return;
         int failed = 0;
         foreach (int pid in a.Pids)
@@ -248,7 +249,7 @@ class MemBall : Form
             catch (Exception ex) { failed++; Log("ending " + a.Name + " (pid " + pid + ") failed: " + ex.Message); }
         }
         if (failed > 0)
-            MessageBox.Show(this, "有 " + failed + " 个进程没能结束（可能受系统保护或权限不足）。", "结束进程", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Lang.T("kill.failed", failed), Lang.T("kill.title"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         Sample();
         Render();
     }
@@ -533,10 +534,10 @@ class MemBall : Form
             try
             {
                 long freed = DoClean();
-                if (freed < 10) { freedLabel = "已是"; freedText = "最佳"; }
-                else { freedLabel = "已释放"; freedText = freed >= 1024 ? (freed / 1024.0).ToString("0.0") + "G" : freed + "M"; }
+                if (freed < 10) cleanResult = 1;
+                else { freedText = freed >= 1024 ? (freed / 1024.0).ToString("0.0") + "G" : freed + "M"; cleanResult = 0; }
             }
-            catch (Exception ex) { Log(ex); freedLabel = "清理"; freedText = "失败"; }
+            catch (Exception ex) { Log(ex); cleanResult = 2; }
             finally { cleanWorkDone = true; }
         });
         worker.IsBackground = true;
@@ -593,7 +594,7 @@ class MemBall : Form
                 SZ size; size.cx = bmp.Width; size.cy = bmp.Height;
                 PT src; src.x = 0; src.y = 0;
                 PT dst; dst.x = Left; dst.y = Top;
-                BLEND bl; bl.op = 0; bl.flags = 0; bl.alpha = (byte)Math.Round(255 * Ease(fade)); bl.fmt = 1; // AC_SRC_ALPHA
+                BLEND bl; bl.op = 0; bl.flags = 0; bl.alpha = (byte)Math.Round(255 * Ease(fade) * settings.Opacity / 100f); bl.fmt = 1; // AC_SRC_ALPHA
                 if (!UpdateLayeredWindow(Handle, screen, ref dst, ref size, mem, ref src, 0, ref bl, 2)) // ULW_ALPHA
                     LogOnce("ulw", "UpdateLayeredWindow failed, error " + Marshal.GetLastWin32Error());
             }
@@ -849,16 +850,19 @@ class MemBall : Form
         cen.FormatFlags |= StringFormatFlags.NoWrap;
         using (SolidBrush white = new SolidBrush(Color.FromArgb(234, 234, 236)))
         {
-            if (!cleaning && rAge >= 0 && rAge < ResultMs && freedText != null)
+            float fitW = disc.Width - S(6f); // widest text that stays inside the ring
+            if (!cleaning && rAge >= 0 && rAge < ResultMs && (cleanResult != 0 || freedText != null))
             {
                 int a = (int)(255 * Math.Min(1.0, rAge / 200));
-                using (Font f1 = new Font("Microsoft YaHei UI", S(7.5f), FontStyle.Regular, GraphicsUnit.Pixel))
-                using (Font f2 = new Font("Microsoft YaHei UI", S(11.5f), FontStyle.Bold, GraphicsUnit.Pixel))
                 using (SolidBrush lb2 = new SolidBrush(Color.FromArgb(a * 200 / 255, 200, 205, 215)))
                 using (SolidBrush gb2 = new SolidBrush(Color.FromArgb(a, 101, 230, 200)))
                 {
-                    g.DrawString(freedLabel ?? "已释放", f1, lb2, new RectangleF(disc.X - S(4f), ry - S(10.5f), disc.Width + S(8f), S(10f)), cen);
-                    g.DrawString(freedText, f2, gb2, new RectangleF(disc.X - S(6f), ry + S(1.5f), disc.Width + S(12f), S(14f)), cen);
+                    string label = Lang.T(cleanResult == 1 ? "ball.optimal1" : cleanResult == 2 ? "ball.failed1" : "ball.freed");
+                    string value = cleanResult == 1 ? Lang.T("ball.optimal2") : cleanResult == 2 ? Lang.T("ball.failed2") : freedText;
+                    DrawFit(g, label, S(7.5f), FontStyle.Regular, lb2, new RectangleF(disc.X - S(4f), ry - S(10.5f), disc.Width + S(8f), S(10f)), cen, fitW);
+                    // 17 px tall (centred where the old 14 px box was): a bold CJK line is taller than 14 px, and with
+                    // LineLimit GDI+ dropped the whole line, so "最佳" / "失败" never showed.
+                    DrawFit(g, value, S(11.5f), FontStyle.Bold, gb2, new RectangleF(disc.X - S(6f), ry, disc.Width + S(12f), S(17f)), cen, fitW);
                 }
             }
             else
@@ -867,15 +871,13 @@ class MemBall : Form
                     g.DrawString(((int)Math.Round(shownLoad)).ToString(), big, white, new RectangleF(disc.X - S(4f), ry - S(11f) - (cleaning ? S(3f) : S(4.5f) * idle), disc.Width + S(8f), S(22f)), cen);
                 if (idle > 0)
                 {
-                    using (Font f4 = new Font("Microsoft YaHei UI", S(6f), FontStyle.Regular, GraphicsUnit.Pixel))
                     using (SolidBrush hb3 = new SolidBrush(Color.FromArgb((int)(210 * idle), 150, 232, 205)))
-                        g.DrawString("点击清理", f4, hb3, new RectangleF(disc.X - S(4f), ry + S(2f), disc.Width + S(8f), S(11f)), cen);
+                        DrawFit(g, Lang.T("ball.hint"), S(6f), FontStyle.Regular, hb3, new RectangleF(disc.X - S(4f), ry + S(2f), disc.Width + S(8f), S(11f)), cen, fitW);
                 }
                 if (cleaning)
                 {
-                    using (Font f3 = new Font("Microsoft YaHei UI", S(7f), FontStyle.Regular, GraphicsUnit.Pixel))
                     using (SolidBrush cb = new SolidBrush(Color.FromArgb(220, 101, 230, 200)))
-                        g.DrawString("清理中", f3, cb, new RectangleF(disc.X - S(4f), ry + S(6f), disc.Width + S(8f), S(9f)), cen);
+                        DrawFit(g, Lang.T("ball.cleaning"), S(7f), FontStyle.Regular, cb, new RectangleF(disc.X - S(4f), ry + S(6f), disc.Width + S(8f), S(9f)), cen, fitW);
                 }
             }
         }
@@ -884,6 +886,20 @@ class MemBall : Form
 
         DrawSpeed(g, p, p.Y + S(94.5f), true, upBps);
         DrawSpeed(g, p, p.Y + S(125.5f), false, downBps);
+    }
+
+    // Draws text at the given pixel size, shrinking it in small steps until it is no wider than maxW
+    // (long French / English words inside the ring); text that already fits is drawn unchanged.
+    static void DrawFit(Graphics g, string text, float size, FontStyle style, Brush b, RectangleF r, StringFormat f, float maxW)
+    {
+        for (int i = 0; ; i++)
+        {
+            using (Font ft = new Font("Microsoft YaHei UI", size, style, GraphicsUnit.Pixel))
+            {
+                if (i >= 6 || g.MeasureString(text, ft, PointF.Empty, f).Width <= maxW) { g.DrawString(text, ft, b, r, f); return; }
+            }
+            size *= 0.92f;
+        }
     }
 
     // One speed row: small arrow at left, value, unit underneath.
@@ -1017,7 +1033,7 @@ class MemBall : Form
 
     void CheckTuck()
     {
-        if (dock == 0 || !onScreen) { if (slideTarget != 0) Untuck(); return; }
+        if (dock == 0 || !onScreen || !settings.Tuck) { if (slideTarget != 0) Untuck(); return; }
         Point c = Cursor.Position;
         int edge = Left + (int)EdgeX(), zone = (int)S(5f);
         RectangleF pf = Panel();
@@ -1034,7 +1050,7 @@ class MemBall : Form
         area.Inflate((int)S(3f), (int)S(3f));
         bool busy = pressed || dragging || cleaning || ResultAge() < ResultMs || ContextMenuStrip.Visible;
         if (busy || area.Contains(c)) lastNear = DateTime.Now;
-        else if ((DateTime.Now - lastNear).TotalMilliseconds > TuckDelayMs) Tuck();
+        else if ((DateTime.Now - lastNear).TotalMilliseconds > settings.TuckDelaySec * 1000) Tuck();
     }
 
     // ---------- hiding ----------
@@ -1045,7 +1061,7 @@ class MemBall : Form
         if (!IsHandleCreated) return;
         IntPtr fg = GetForegroundWindow();
         if (fsOverride != IntPtr.Zero && fg != fsOverride) fsOverride = IntPtr.Zero;
-        bool fs = fsOverride == IntPtr.Zero && FullscreenAppActive(fg);
+        bool fs = settings.HideInFullscreen && fsOverride == IntPtr.Zero && FullscreenAppActive(fg);
         bool want = !userHidden && !fs;
         if (want != (fadeTarget > 0))
             Note(want ? "show" : "hide: " + (userHidden ? "user" : "full screen, foreground " + Describe(fg)));
@@ -1134,7 +1150,7 @@ class MemBall : Form
         else if (!trayTipShown && tray != null)
         {
             trayTipShown = true;
-            tray.ShowBalloonTip(3000, "MemBall 已隐藏", hotkeyOk ? "双击托盘图标或按 " + hotkeyName + " 恢复显示" : "双击托盘图标恢复显示", ToolTipIcon.None);
+            tray.ShowBalloonTip(3000, Lang.T("tray.hidden"), hotkeyOk ? Lang.T("tray.howHotkey", hotkeyName) : Lang.T("tray.how"), ToolTipIcon.None);
         }
         UpdateVisibility();
     }
@@ -1153,8 +1169,9 @@ class MemBall : Form
         if (tray == null)
         {
             tray = new NotifyIcon();
-            ContextMenuStrip tm = new ContextMenuStrip(); // the tray only offers 退出; everything else is on the ball
-            tm.Items.Add("退出", null, delegate { Exit(); });
+            ContextMenuStrip tm = new ContextMenuStrip(); // the tray only offers Exit; everything else is on the ball
+            trayExitItem = new ToolStripMenuItem(Lang.T("menu.exit"), null, delegate { Exit(); });
+            tm.Items.Add(trayExitItem);
             tray.ContextMenuStrip = tm;
             // Double click, so a stray single click on the tray cannot hide the ball.
             tray.MouseDoubleClick += delegate (object o, MouseEventArgs e) { if (e.Button == MouseButtons.Left) ToggleShown(); };
@@ -1173,7 +1190,7 @@ class MemBall : Form
         }
         // A NotifyIcon without an icon shows nothing; fall back to a stock icon so the way back always exists.
         if (tray.Icon == null) tray.Icon = SystemIcons.Application;
-        tray.Text = "MemBall · 内存 " + load + "%";
+        tray.Text = Lang.T("tray.tip", load);
         if (!tray.Visible) tray.Visible = true;
     }
 
@@ -1266,20 +1283,62 @@ class MemBall : Form
         return RunSchtasks("/query /tn " + TaskName, out err) == 0;
     }
 
-    void ToggleAutostart()
+    void SetAutostart(bool on)
     {
+        if (on == AutostartExists()) return;
         int rc;
         string err;
-        if (autoItem.Checked)
-            rc = RunSchtasks("/delete /tn " + TaskName + " /f", out err);
-        else
+        if (on)
             rc = CreateAutostartTask(out err);
+        else
+            rc = RunSchtasks("/delete /tn " + TaskName + " /f", out err);
         if (rc != 0)
         {
             Log("autostart change failed (" + rc + "): " + err);
-            MessageBox.Show("设置开机自启失败。\n\n" + (string.IsNullOrEmpty(err) ? "请以管理员身份运行后再试。" : err), "MemBall");
+            MessageBox.Show(Lang.T("auto.failed", string.IsNullOrEmpty(err) ? Lang.T("auto.runAsAdmin") : err), "MemBall");
         }
-        autoItem.Checked = AutostartExists();
+    }
+
+    // ---------- settings and language ----------
+
+    void ApplyLanguage()
+    {
+        cleanItem.Text = Lang.T("menu.clean");
+        hideItem.Text = Lang.T(userHidden ? "menu.show" : "menu.hide");
+        settingsItem.Text = Lang.T("menu.settings");
+        exitItem.Text = Lang.T("menu.exit");
+        if (trayExitItem != null) trayExitItem.Text = Lang.T("menu.exit");
+    }
+
+    // Debug aids: show a given language without touching the saved settings.
+    void ForceLanguage(string code)
+    {
+        if (code == null) return;
+        Lang.Code = Lang.Resolve(code);
+        ApplyLanguage();
+    }
+
+    void OpenSettings()
+    {
+        if (settingsForm != null && !settingsForm.IsDisposed) { settingsForm.Activate(); return; }
+        settingsForm = new SettingsForm(this, settings, AutostartExists(), hotkeyName);
+        settingsForm.FormClosed += delegate { settingsForm = null; };
+        settingsForm.Show();
+    }
+
+    // Called by the settings window when the user presses OK.
+    internal void ApplySettings(Settings s, bool autostart)
+    {
+        settings = s;
+        try { settings.Save(SettingsFile); }
+        catch (Exception ex) { LogOnce("savesettings", ex.ToString()); }
+        SetAutostart(autostart);
+        Lang.Code = Lang.Resolve(settings.Language);
+        ApplyLanguage();
+        if (!settings.Tuck) Untuck();
+        UpdateVisibility();
+        UpdateTray();
+        Render();
     }
 
     // Plain "schtasks /create" would not start the task on battery, stop it when unplugged and kill it
@@ -1405,15 +1464,15 @@ class MemBall : Form
     // ---------- diagnostics export ----------
 
     // Saves a report (environment + error logs) the user can attach to a bug report, then shows it in Explorer.
-    void ExportLog()
+    internal void ExportLog(IWin32Window owner)
     {
         using (SaveFileDialog d = new SaveFileDialog())
         {
-            d.Title = "导出错误日志";
-            d.Filter = "文本文件 (*.txt)|*.txt";
-            d.FileName = "MemBall-日志-" + DateTime.Now.ToString("yyyyMMdd-HHmm") + ".txt";
+            d.Title = Lang.T("export.title");
+            d.Filter = Lang.T("export.filter");
+            d.FileName = "MemBall-log-" + DateTime.Now.ToString("yyyyMMdd-HHmm") + ".txt";
             d.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            if (d.ShowDialog(this) != DialogResult.OK) return;
+            if (d.ShowDialog(owner) != DialogResult.OK) return;
             try
             {
                 File.WriteAllText(d.FileName, BuildReport(), new UTF8Encoding(true));
@@ -1422,7 +1481,7 @@ class MemBall : Form
             catch (Exception ex)
             {
                 Log(ex);
-                MessageBox.Show(this, "导出失败：" + ex.Message, "MemBall", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(owner, Lang.T("export.failed", ex.Message), "MemBall", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
     }
@@ -1430,30 +1489,33 @@ class MemBall : Form
     string BuildReport()
     {
         StringBuilder sb = new StringBuilder();
-        sb.AppendLine("MemBall 诊断报告");
-        sb.AppendLine("导出时间: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-        sb.AppendLine("版本: " + Application.ProductVersion);
-        sb.AppendLine("程序位置: " + Application.ExecutablePath);
-        sb.AppendLine("Windows: " + WindowsVersion() + (Environment.Is64BitOperatingSystem ? " (64 位)" : " (32 位)"));
+        sb.AppendLine("MemBall diagnostics report");
+        sb.AppendLine("Exported: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+        sb.AppendLine("Version: " + Application.ProductVersion);
+        sb.AppendLine("Executable: " + Application.ExecutablePath);
+        sb.AppendLine("Windows: " + WindowsVersion() + (Environment.Is64BitOperatingSystem ? " (64-bit)" : " (32-bit)"));
         sb.AppendLine(".NET CLR: " + Environment.Version);
         bool admin = new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent())
                          .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
-        sb.AppendLine("管理员权限: " + (admin ? "是" : "否"));
+        sb.AppendLine("Administrator: " + (admin ? "yes" : "no"));
         MEMSTATUS m = new MEMSTATUS();
         if (GlobalMemoryStatusEx(m))
-            sb.AppendLine("内存: " + (m.ullTotalPhys / 1073741824.0).ToString("0.0") + " GB, 占用 " + m.dwMemoryLoad + "%");
-        sb.AppendLine("缩放: " + Math.Round(s / Zoom * 100) + "%");
+            sb.AppendLine("Memory: " + (m.ullTotalPhys / 1073741824.0).ToString("0.0") + " GB, " + m.dwMemoryLoad + "% in use");
+        sb.AppendLine("Scaling: " + Math.Round(s / Zoom * 100) + "%");
         foreach (Screen sc in Screen.AllScreens)
-            sb.AppendLine("显示器: " + sc.Bounds.Width + "x" + sc.Bounds.Height + " @ " + sc.Bounds.X + "," + sc.Bounds.Y +
-                          (sc.Primary ? " (主)" : "") + ", 工作区 " + sc.WorkingArea);
-        sb.AppendLine("开机自启: " + (AutostartExists() ? "已设置" : "未设置"));
-        sb.AppendLine("快捷键: " + (hotkeyName ?? "未注册（被其他程序占用）"));
-        sb.AppendLine("位置: " + Left + "," + Top + "  贴边: " + (dock < 0 ? "左" : dock > 0 ? "右" : "无") +
-                      "  隐藏: " + (userHidden ? "是" : "否"));
+            sb.AppendLine("Display: " + sc.Bounds.Width + "x" + sc.Bounds.Height + " @ " + sc.Bounds.X + "," + sc.Bounds.Y +
+                          (sc.Primary ? " (primary)" : "") + ", work area " + sc.WorkingArea);
+        sb.AppendLine("Start with Windows: " + (AutostartExists() ? "on" : "off"));
+        sb.AppendLine("Hotkey: " + (hotkeyName ?? "not registered (taken by another program)"));
+        sb.AppendLine("Language: " + Lang.Code + " (setting: " + settings.Language + ", system: " + System.Globalization.CultureInfo.CurrentUICulture.Name + ")");
+        sb.AppendLine("Settings: hideInFullscreen=" + settings.HideInFullscreen + " tuck=" + settings.Tuck +
+                      " tuckDelay=" + settings.TuckDelaySec + "s opacity=" + settings.Opacity + "%");
+        sb.AppendLine("Position: " + Left + "," + Top + "  docked: " + (dock < 0 ? "left" : dock > 0 ? "right" : "no") +
+                      "  hidden by user: " + (userHidden ? "yes" : "no"));
         TimeSpan up = DateTime.Now - startedAt;
-        sb.AppendLine("本次已运行: " + (int)up.TotalHours + " 小时 " + up.Minutes + " 分" + (restartCount > 0 ? "（崩溃后第 " + restartCount + " 次重启）" : ""));
+        sb.AppendLine("Uptime: " + (int)up.TotalHours + " h " + up.Minutes + " min" + (restartCount > 0 ? " (restart #" + restartCount + " after a crash)" : ""));
         sb.AppendLine();
-        sb.AppendLine("===== 显示状态记录（最近 " + journal.Count + " 条）=====");
+        sb.AppendLine("===== Visibility journal (last " + journal.Count + ") =====");
         foreach (string j in journal) sb.AppendLine(j);
         sb.AppendLine();
 
@@ -1462,13 +1524,13 @@ class MemBall : Form
         foreach (string f in logs)
         {
             string text;
-            lock (logLock) { try { text = File.Exists(f) ? File.ReadAllText(f) : null; } catch (Exception ex) { text = "(读取失败: " + ex.Message + ")"; } }
+            lock (logLock) { try { text = File.Exists(f) ? File.ReadAllText(f) : null; } catch (Exception ex) { text = "(could not read: " + ex.Message + ")"; } }
             if (string.IsNullOrEmpty(text)) continue;
             any = true;
             sb.AppendLine("===== " + Path.GetFileName(f) + " =====");
             sb.AppendLine(text);
         }
-        if (!any) sb.AppendLine("（没有错误记录）");
+        if (!any) sb.AppendLine("(no errors logged)");
         return Scrub(sb.ToString());
     }
 
@@ -1481,7 +1543,7 @@ class MemBall : Form
                                                                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         string pc = Environment.MachineName;
         if (!string.IsNullOrEmpty(pc))
-            text = System.Text.RegularExpressions.Regex.Replace(text, "\\b" + System.Text.RegularExpressions.Regex.Escape(pc) + "\\b", "<电脑名>",
+            text = System.Text.RegularExpressions.Regex.Replace(text, "\\b" + System.Text.RegularExpressions.Regex.Escape(pc) + "\\b", "<computer>",
                                                                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         return text;
     }
@@ -1580,8 +1642,9 @@ class MemBall : Form
     // Debug aid: MemBall.exe --png <file> renders one frame to an image and exits.
     void SavePreview(string path)
     {
-        // Frames side by side: idle, hover, cleaning, result, half tucked into a right edge, tucked (current, 65%, 90%).
-        using (Bitmap bmp = new Bitmap(Width * 8, Height, PixelFormat.Format32bppArgb))
+        // Frames side by side: idle, hover, cleaning, results (freed, optimal, failed),
+        // half tucked into a right edge, tucked (current, 65%, 90%).
+        using (Bitmap bmp = new Bitmap(Width * 10, Height, PixelFormat.Format32bppArgb))
         {
             using (Graphics g = Graphics.FromImage(bmp))
             {
@@ -1596,7 +1659,16 @@ class MemBall : Form
                 Draw(g);
                 g.TranslateTransform(Width, 0);
                 cleaning = false; resultStart = DateTime.Now.AddMilliseconds(-250); freedText = "1.2G"; shownLoad = load;
+                cleanResult = 0;
                 Draw(g);
+                // The other two results: already optimal, clean failed.
+                for (int r = 1; r <= 2; r++)
+                {
+                    g.TranslateTransform(Width, 0);
+                    cleanResult = r;
+                    Draw(g);
+                }
+                cleanResult = 0;
                 resultStart = DateTime.MinValue;
                 // Right screen edge where a docked window would put it; the dark band stands for the next monitor / off-screen.
                 float edgeX = Width - ((int)S(Margin_) - (int)S(4f));
@@ -1619,10 +1691,35 @@ class MemBall : Form
     [STAThread]
     static void Main(string[] args)
     {
-        if (args.Length == 2 && args[0] == "--png")
+        // Debug aids below take an optional language (zh | en | fr) after the file name.
+        string debugLang = args.Length == 3 ? args[2] : null;
+        if ((args.Length == 2 || args.Length == 3) && args[0] == "--png")
         {
             SetProcessDPIAware();
-            using (MemBall mb = new MemBall()) mb.SavePreview(args[1]);
+            using (MemBall mb = new MemBall()) { mb.ForceLanguage(debugLang); mb.SavePreview(args[1]); }
+            return;
+        }
+        if ((args.Length == 2 || args.Length == 3) && args[0] == "--settings")
+        {
+            // Debug aid: render the settings window to an image.
+            SetProcessDPIAware();
+            Application.EnableVisualStyles();
+            using (MemBall mb = new MemBall())
+            {
+                mb.ForceLanguage(debugLang);
+                using (SettingsForm sf = new SettingsForm(mb, mb.settings, AutostartExists(), "Ctrl+Alt+Shift+M"))
+                {
+                    sf.StartPosition = FormStartPosition.Manual;
+                    sf.Location = new Point(-4000, -4000);
+                    sf.Show();
+                    Application.DoEvents();
+                    using (Bitmap bmp = new Bitmap(sf.Width, sf.Height))
+                    {
+                        sf.DrawToBitmap(bmp, new Rectangle(0, 0, sf.Width, sf.Height));
+                        bmp.Save(args[1], ImageFormat.Png);
+                    }
+                }
+            }
             return;
         }
         if ((args.Length == 2 || args.Length == 3) && args[0] == "--ico")
@@ -1636,18 +1733,19 @@ class MemBall : Form
         if (args.Length == 2 && args[0] == "--report")
         {
             // Debug aid: write the diagnostics report without the save dialog
-            // (the hotkey line reads "未注册" here, since this mode never registers it).
+            // (the hotkey line reads "not registered" here, since this mode never registers it).
             SetProcessDPIAware();
             using (MemBall mb = new MemBall()) File.WriteAllText(args[1], mb.BuildReport(), new UTF8Encoding(true));
             return;
         }
-        if (args.Length == 2 && args[0] == "--menu")
+        if ((args.Length == 2 || args.Length == 3) && args[0] == "--menu")
         {
             // Debug aid: render the context menu (with live memory details) to an image.
             SetProcessDPIAware();
             Application.EnableVisualStyles();
             using (MemBall mb = new MemBall())
             {
+                mb.ForceLanguage(debugLang);
                 ContextMenuStrip menu = mb.ContextMenuStrip;
                 mb.FillStats(menu);
                 menu.Show(new Point(-4000, -4000));

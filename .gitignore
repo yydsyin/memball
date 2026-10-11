@@ -4,7 +4,7 @@
 
 # Debug renders (MemBall.exe --png / --menu) and exported reports
 *.png
-MemBall-日志-*.txt
+MemBall-log-*.txt
 
 # Temporary files
 *.tmp

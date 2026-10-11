@@ -8,6 +8,6 @@ if not exist "%CSC%" (
   exit /b 1
 )
 rem MemBall.ico is the logo; regenerate it with: MemBall.exe --ico MemBall.ico
-"%CSC%" /nologo /target:winexe /optimize /win32icon:"%~dp0MemBall.ico" /out:"%~dp0MemBall.exe" /r:System.Windows.Forms.dll /r:System.Drawing.dll "%~dp0MemBall.cs"
+"%CSC%" /nologo /target:winexe /optimize /win32icon:"%~dp0MemBall.ico" /out:"%~dp0MemBall.exe" /r:System.Windows.Forms.dll /r:System.Drawing.dll "%~dp0*.cs"
 if errorlevel 1 exit /b 1
 echo Built %~dp0MemBall.exe
