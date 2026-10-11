@@ -62,7 +62,7 @@ class SettingsForm : Form
     static readonly string[] LangCodes = { "auto", "zh", "en", "fr" };
 
     readonly MemBall ball;
-    readonly Settings current;
+    Settings current;
     readonly ComboBox langBox = new ComboBox();
     readonly CheckBox autoBox = new CheckBox(), fsBox = new CheckBox(), tuckBox = new CheckBox();
     readonly NumericUpDown delayBox = new NumericUpDown();
@@ -142,13 +142,19 @@ class SettingsForm : Form
         version.ForeColor = SystemColors.GrayText;
         Row(t, version, null);
 
-        Button export = new Button(), ok = new Button(), cancel = new Button();
+        Button export = new Button(), ok = new Button(), apply = new Button(), cancel = new Button();
         Btn(export, Lang.T("set.export"));
         Btn(ok, Lang.T("set.ok"));
+        Btn(apply, Lang.T("set.apply"));
         Btn(cancel, Lang.T("set.cancel"));
         export.Click += delegate { ball.ExportLog(this); };
         ok.Click += delegate { Apply(); Close(); };
-        cancel.Click += delegate { Close(); };
+        apply.Click += delegate
+        {
+            // Apply keeps the window open. After a language change it reopens in place so its own text switches too.
+            if (Apply()) { Point at = Location; Close(); ball.OpenSettings(at); }
+        };
+        cancel.Click += delegate { Close(); }; // changes already applied stay, as in other Windows dialogs
         AcceptButton = ok;
         CancelButton = cancel;
 
@@ -161,7 +167,7 @@ class SettingsForm : Form
         buttons.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         export.Anchor = AnchorStyles.Left;
         buttons.Controls.Add(export, 0, 0);
-        FlowLayoutPanel right = Flow(ok, cancel);
+        FlowLayoutPanel right = Flow(ok, apply, cancel);
         right.Anchor = AnchorStyles.Right;
         buttons.Controls.Add(right, 1, 0);
         Row(t, buttons, null);
@@ -169,7 +175,8 @@ class SettingsForm : Form
         Controls.Add(t);
     }
 
-    void Apply()
+    // Returns true when the language changed.
+    bool Apply()
     {
         Settings s = current.Clone();
         s.Language = LangCodes[Math.Max(0, langBox.SelectedIndex)];
@@ -177,7 +184,10 @@ class SettingsForm : Form
         s.Tuck = tuckBox.Checked;
         s.TuckDelaySec = (double)delayBox.Value;
         s.Opacity = opBar.Value;
+        bool langChanged = s.Language != current.Language;
         ball.ApplySettings(s, autoBox.Checked);
+        current = s;
+        return langChanged;
     }
 
     // ---------- layout helpers ----------

@@ -89,6 +89,7 @@ static class Lang
         { "set.export",      new[] { "导出错误日志…",                "Export error log…",                       "Exporter le journal d'erreurs…" } },
         { "set.version",     new[] { "版本 {0}",                     "Version {0}",                             "Version {0}" } },
         { "set.ok",          new[] { "确定",                         "OK",                                      "OK" } },
+        { "set.apply",       new[] { "应用",                         "Apply",                                   "Appliquer" } },
         { "set.cancel",      new[] { "取消",                         "Cancel",                                  "Annuler" } },
     };
 }

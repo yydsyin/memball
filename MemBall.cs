@@ -1318,11 +1318,13 @@ class MemBall : Form
         ApplyLanguage();
     }
 
-    void OpenSettings()
+    // at: where to put the window (reopening after a language change); null centres it on screen.
+    internal void OpenSettings(Point? at = null)
     {
         if (settingsForm != null && !settingsForm.IsDisposed) { settingsForm.Activate(); return; }
         settingsForm = new SettingsForm(this, settings, AutostartExists(), hotkeyName);
         settingsForm.FormClosed += delegate { settingsForm = null; };
+        if (at.HasValue) { settingsForm.StartPosition = FormStartPosition.Manual; settingsForm.Location = at.Value; }
         settingsForm.Show();
     }
 
