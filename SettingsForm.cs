@@ -12,6 +12,7 @@ class Settings
     public bool Tuck = true;
     public double TuckDelaySec = 1.5;
     public int Opacity = 100;          // percent, 40..100
+    public bool Welcomed;              // the first-run hint has been shown
 
     public Settings Clone() { return (Settings)MemberwiseClone(); }
 
@@ -33,6 +34,7 @@ class Settings
                 else if (k == "tuck") s.Tuck = v != "0";
                 else if (k == "tuckDelay" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) s.TuckDelaySec = d;
                 else if (k == "opacity" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) s.Opacity = (int)d;
+                else if (k == "welcomed") s.Welcomed = v == "1";
             }
         }
         catch { } // unreadable file: run with the defaults
@@ -48,7 +50,8 @@ class Settings
             "hideInFullscreen=" + (HideInFullscreen ? "1" : "0") + "\r\n" +
             "tuck=" + (Tuck ? "1" : "0") + "\r\n" +
             "tuckDelay=" + TuckDelaySec.ToString(CultureInfo.InvariantCulture) + "\r\n" +
-            "opacity=" + Opacity + "\r\n";
+            "opacity=" + Opacity + "\r\n" +
+            "welcomed=" + (Welcomed ? "1" : "0") + "\r\n";
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         string tmp = path + ".tmp";
         File.WriteAllText(tmp, text);
@@ -68,6 +71,7 @@ class SettingsForm : Form
     readonly NumericUpDown delayBox = new NumericUpDown();
     readonly TrackBar opBar = new TrackBar();
     readonly Label opValue = new Label();
+    readonly Button apply = new Button();
     readonly float f; // DPI scale for the few fixed widths; everything else sizes itself from the font
 
     int P(int v) { return (int)Math.Round(v * f); }
@@ -142,7 +146,7 @@ class SettingsForm : Form
         version.ForeColor = SystemColors.GrayText;
         Row(t, version, null);
 
-        Button export = new Button(), ok = new Button(), apply = new Button(), cancel = new Button();
+        Button export = new Button(), ok = new Button(), cancel = new Button();
         Btn(export, Lang.T("set.export"));
         Btn(ok, Lang.T("set.ok"));
         Btn(apply, Lang.T("set.apply"));
@@ -153,6 +157,7 @@ class SettingsForm : Form
         {
             // Apply keeps the window open. After a language change it reopens in place so its own text switches too.
             if (Apply()) { Point at = Location; Close(); ball.OpenSettings(at); }
+            else apply.Enabled = false;
         };
         cancel.Click += delegate { Close(); }; // changes already applied stay, as in other Windows dialogs
         AcceptButton = ok;
@@ -173,6 +178,16 @@ class SettingsForm : Form
         Row(t, buttons, null);
 
         Controls.Add(t);
+
+        // Apply lights up once something differs from what is in effect.
+        apply.Enabled = false;
+        EventHandler dirty = delegate { apply.Enabled = true; };
+        langBox.SelectedIndexChanged += dirty;
+        autoBox.CheckedChanged += dirty;
+        fsBox.CheckedChanged += dirty;
+        tuckBox.CheckedChanged += dirty;
+        delayBox.ValueChanged += dirty;
+        opBar.ValueChanged += dirty;
     }
 
     // Returns true when the language changed.

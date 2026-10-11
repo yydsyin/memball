@@ -341,6 +341,13 @@ class MemBall : Form
         Render();
         KeepOnTop(); // check right away rather than after the first 1 s tick
         UpdateTray();
+        if (!settings.Welcomed)
+        {
+            // First run: say how to use it, once.
+            tray.ShowBalloonTip(6000, Lang.T("welcome.title"), Lang.T("welcome.text"), ToolTipIcon.None);
+            settings.Welcomed = true;
+            try { settings.Save(SettingsFile); } catch (Exception ex) { LogOnce("savesettings", ex.ToString()); }
+        }
         sampleTimer.Start();
         dockTimer.Start();
 

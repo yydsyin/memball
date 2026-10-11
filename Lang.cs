@@ -67,6 +67,12 @@ static class Lang
         { "tray.how",        new[] { "双击托盘图标恢复显示",         "Double-click the tray icon to show it again",
                                      "Double-cliquez sur l'icône de la zone de notification pour le réafficher" } },
 
+        // first run
+        { "welcome.title",   new[] { "MemBall 已在运行",             "MemBall is running",                      "MemBall est lancé" } },
+        { "welcome.text",    new[] { "单击悬浮球清理内存，拖动可移动，右键打开菜单和设置。",
+                                     "Click the ball to clean memory, drag it to move it, right-click for the menu and settings.",
+                                     "Cliquez sur la boule pour nettoyer la mémoire, faites-la glisser pour la déplacer, clic droit pour le menu et les paramètres." } },
+
         // autostart and log export
         { "auto.failed",     new[] { "设置开机自启失败。\n\n{0}",     "Could not change starting with Windows.\n\n{0}", "Impossible de modifier le lancement au démarrage.\n\n{0}" } },
         { "auto.runAsAdmin", new[] { "请以管理员身份运行后再试。",   "Run MemBall as administrator and try again.", "Exécutez MemBall en tant qu'administrateur puis réessayez." } },
