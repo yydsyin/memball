@@ -702,7 +702,7 @@ class MemBall : Form
 
     static void RingColors(float v, out Color c1, out Color c2)
     {
-        if (v < 60) { c1 = Color.FromArgb(120, 204, 130); c2 = Color.FromArgb(74, 196, 190); }
+        if (v < 60) { c1 = Theme.Ring1; c2 = Theme.Ring2; }
         else if (v < 80) { c1 = Color.FromArgb(255, 204, 96); c2 = Color.FromArgb(246, 156, 56); }
         else { c1 = Color.FromArgb(255, 128, 110); c2 = Color.FromArgb(236, 78, 78); }
     }
@@ -760,8 +760,8 @@ class MemBall : Form
                 hp.AddEllipse(bc.X - hr, bc.Y - hr, hr * 2, hr * 2);
                 using (PathGradientBrush hb2 = new PathGradientBrush(hp))
                 {
-                    hb2.CenterColor = Color.FromArgb((int)((110 + 50 * breath) * idle), 101, 230, 200);
-                    hb2.SurroundColors = new Color[] { Color.FromArgb(0, 101, 230, 200) };
+                    hb2.CenterColor = Color.FromArgb((int)((110 + 50 * breath) * idle), Theme.Accent);
+                    hb2.SurroundColors = new Color[] { Color.FromArgb(0, Theme.Accent) };
                     g.FillPath(hb2, hp);
                 }
             }
@@ -771,7 +771,7 @@ class MemBall : Form
         {
             float t = (float)(rAge / PulseMs);
             float pr = br + S(13f) * t;
-            using (Pen pp2 = new Pen(Color.FromArgb((int)(220 * (1 - t)), 101, 230, 200), S(2.2f) * (1 - t) + S(0.4f)))
+            using (Pen pp2 = new Pen(Color.FromArgb((int)(220 * (1 - t)), Theme.Accent), S(2.2f) * (1 - t) + S(0.4f)))
                 g.DrawEllipse(pp2, bc.X - pr, bc.Y - pr, pr * 2, pr * 2);
         }
         using (GraphicsPath bp = new GraphicsPath())
@@ -780,21 +780,21 @@ class MemBall : Form
             using (PathGradientBrush bb = new PathGradientBrush(bp))
             {
                 bb.CenterPoint = new PointF(bc.X, bc.Y + br * 0.12f);
-                bb.CenterColor = Color.FromArgb(96, 222, 192);
-                bb.SurroundColors = new Color[] { Color.FromArgb(200, 244, 236) };
+                bb.CenterColor = Theme.BadgeCenter;
+                bb.SurroundColors = new Color[] { Theme.BadgeEdge };
                 bb.FocusScales = new PointF(0.55f, 0.5f);
                 g.FillPath(bb, bp);
             }
         }
-        // cool cyan sheen on the left, like the original glass ball
-        using (LinearGradientBrush sheen = new LinearGradientBrush(brc, Color.FromArgb(130, 160, 215, 250), Color.FromArgb(0, 160, 215, 250), 0f))
+        // cool sheen on the left side of the glass badge
+        using (LinearGradientBrush sheen = new LinearGradientBrush(brc, Color.FromArgb(130, Theme.Sheen), Color.FromArgb(0, Theme.Sheen), 0f))
             g.FillEllipse(sheen, brc);
         using (GraphicsPath hl = new GraphicsPath())
         {
             hl.AddEllipse(brc.X + br * 0.25f, brc.Y + br * 0.12f, br * 1.1f, br * 0.75f);
             using (PathGradientBrush hb = new PathGradientBrush(hl))
             {
-                hb.CenterColor = Color.FromArgb(150, 235, 255, 235);
+                hb.CenterColor = Color.FromArgb(150, Theme.Highlight);
                 hb.SurroundColors = new Color[] { Color.FromArgb(0, 255, 255, 255) };
                 g.FillPath(hb, hl);
             }
@@ -804,7 +804,7 @@ class MemBall : Form
             float rot = (float)(hAge / 2000.0 * 360 % 360);
             RectangleF gl = brc; gl.Inflate(S(1.8f), S(1.8f));
             for (int i = 0; i < 8; i++)
-                using (Pen gp = new Pen(Color.FromArgb((int)(220 * idle * (8 - i) / 8), 170, 245, 225), S(1.4f)))
+                using (Pen gp = new Pen(Color.FromArgb((int)(220 * idle * (8 - i) / 8), Theme.BadgeGlint), S(1.4f)))
                     g.DrawArc(gp, gl, rot - i * 7, 7.5f);
         }
         
@@ -827,15 +827,7 @@ class MemBall : Form
                 float t = (float)(rAge / 320) - 1;
                 k = 1 + 2.2f * t * t * t + 1.2f * t * t; // ease-out-back 0 -> 1
             }
-            float cr = br * k;
-            using (Pen ck = new Pen(Color.White, S(1.7f)))
-            {
-                ck.StartCap = LineCap.Round; ck.EndCap = LineCap.Round; ck.LineJoin = LineJoin.Round;
-                g.DrawLines(ck, new PointF[] {
-                    new PointF(bc.X - cr * 0.40f, bc.Y - cr * 0.06f),
-                    new PointF(bc.X - cr * 0.10f, bc.Y + cr * 0.22f),
-                    new PointF(bc.X + cr * 0.42f, bc.Y - cr * 0.36f) });
-            }
+            DrawGlyph(g, bc, br * k);
         }
 
         // memory ring: dark disc, thin track, arc growing symmetrically from the bottom
@@ -866,7 +858,7 @@ class MemBall : Form
             for (int i = 0; i < Trail; i++)
             {
                 int a = (int)(220 * idle * (Trail - i) / Trail);
-                using (Pen cp = new Pen(Color.FromArgb(a, 190, 245, 230), th * (1.5f - 0.6f * i / Trail)))
+                using (Pen cp = new Pen(Color.FromArgb(a, Theme.RingGlint), th * (1.5f - 0.6f * i / Trail)))
                 {
                     cp.StartCap = LineCap.Round; cp.EndCap = LineCap.Round;
                     g.DrawArc(cp, disc, head - i * 4f, 4.5f);
@@ -885,7 +877,7 @@ class MemBall : Form
             {
                 int a = (int)(255 * Math.Min(1.0, rAge / 200));
                 using (SolidBrush lb2 = new SolidBrush(Color.FromArgb(a * 200 / 255, 200, 205, 215)))
-                using (SolidBrush gb2 = new SolidBrush(Color.FromArgb(a, 101, 230, 200)))
+                using (SolidBrush gb2 = new SolidBrush(Color.FromArgb(a, Theme.Accent)))
                 {
                     string label = Lang.T(cleanResult == 1 ? "ball.optimal1" : cleanResult == 2 ? "ball.failed1" : "ball.freed");
                     string value = cleanResult == 1 ? Lang.T("ball.optimal2") : cleanResult == 2 ? Lang.T("ball.failed2") : freedText;
@@ -901,12 +893,12 @@ class MemBall : Form
                     g.DrawString(((int)Math.Round(shownLoad)).ToString(), big, white, new RectangleF(disc.X - S(4f), ry - S(11f) - (cleaning ? S(3f) : S(4.5f) * idle), disc.Width + S(8f), S(22f)), cen);
                 if (idle > 0)
                 {
-                    using (SolidBrush hb3 = new SolidBrush(Color.FromArgb((int)(210 * idle), 150, 232, 205)))
+                    using (SolidBrush hb3 = new SolidBrush(Color.FromArgb((int)(210 * idle), Theme.Hint)))
                         DrawFit(g, Lang.T("ball.hint"), S(6f), FontStyle.Regular, hb3, new RectangleF(disc.X - S(4f), ry + S(2f), disc.Width + S(8f), S(11f)), cen, fitW);
                 }
                 if (cleaning)
                 {
-                    using (SolidBrush cb = new SolidBrush(Color.FromArgb(220, 101, 230, 200)))
+                    using (SolidBrush cb = new SolidBrush(Color.FromArgb(220, Theme.Accent)))
                         DrawFit(g, Lang.T("ball.cleaning"), S(7f), FontStyle.Regular, cb, new RectangleF(disc.X - S(4f), ry + S(6f), disc.Width + S(8f), S(9f)), cen, fitW);
                 }
             }
@@ -932,12 +924,54 @@ class MemBall : Form
         }
     }
 
+    // The white mark on the badge, scaled by cr (the badge radius, animated after a clean).
+    void DrawGlyph(Graphics g, PointF bc, float cr)
+    {
+        using (Pen pen = new Pen(Color.White, S(1.7f)))
+        using (SolidBrush fill = new SolidBrush(Color.White))
+        {
+            pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; pen.LineJoin = LineJoin.Round;
+            switch (Theme.Glyph)
+            {
+                case 1: // ring, open at the top, like the memory ring and the logo
+                {
+                    float rr = cr * 0.44f;
+                    g.DrawArc(pen, bc.X - rr, bc.Y - rr, rr * 2, rr * 2, -50, 280);
+                    break;
+                }
+                case 2: // lightning bolt
+                    g.FillPolygon(fill, new PointF[] {
+                        new PointF(bc.X + cr * 0.10f, bc.Y - cr * 0.52f),
+                        new PointF(bc.X - cr * 0.30f, bc.Y + cr * 0.06f),
+                        new PointF(bc.X - cr * 0.02f, bc.Y + cr * 0.06f),
+                        new PointF(bc.X - cr * 0.12f, bc.Y + cr * 0.52f),
+                        new PointF(bc.X + cr * 0.30f, bc.Y - cr * 0.08f),
+                        new PointF(bc.X + cr * 0.02f, bc.Y - cr * 0.08f) });
+                    break;
+                case 3: // four-point sparkle
+                {
+                    float a = cr * 0.50f, w = cr * 0.13f;
+                    g.FillPolygon(fill, new PointF[] {
+                        new PointF(bc.X, bc.Y - a), new PointF(bc.X + w, bc.Y - w), new PointF(bc.X + a, bc.Y), new PointF(bc.X + w, bc.Y + w),
+                        new PointF(bc.X, bc.Y + a), new PointF(bc.X - w, bc.Y + w), new PointF(bc.X - a, bc.Y), new PointF(bc.X - w, bc.Y - w) });
+                    break;
+                }
+                default: // check mark
+                    g.DrawLines(pen, new PointF[] {
+                        new PointF(bc.X - cr * 0.40f, bc.Y - cr * 0.06f),
+                        new PointF(bc.X - cr * 0.10f, bc.Y + cr * 0.22f),
+                        new PointF(bc.X + cr * 0.42f, bc.Y - cr * 0.36f) });
+                    break;
+            }
+        }
+    }
+
     // One speed row: small arrow at left, value, unit underneath.
     void DrawSpeed(Graphics g, RectangleF p, float y, bool up, double bps)
     {
         string num, unit;
         SplitSpeed(bps, out num, out unit);
-        Color ac = up ? Color.FromArgb(17, 178, 255) : Color.FromArgb(0, 190, 99);
+        Color ac = up ? Theme.Up : Theme.Down;
         float ax = p.X + S(9.5f), ay = y + S(5f), hw = S(2f), hh = S(2f), stem = S(2.2f);
 
         using (SolidBrush ab = new SolidBrush(ac))
