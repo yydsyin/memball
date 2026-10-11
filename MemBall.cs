@@ -78,6 +78,11 @@ class MemBall : Form
     static readonly string SettingsFile = Path.Combine(DataDir, "settings.txt");
     internal Settings settings;
     SettingsForm settingsForm;
+    Release pendingRelease;      // newer release found by the last check
+    UpdateForm updateForm;
+    Timer updateTimer;
+    volatile bool checkingUpdates;
+    bool balloonIsUpdate;        // the last tray balloon announced an update
 
     // Logical layout (96 dpi units)
     const float Margin_ = 5, PanelW = 41.7f, PanelH = 160.2f, Radius = 20.85f, RadiusTop = 7.5f;
@@ -163,6 +168,14 @@ class MemBall : Form
         dockTimer = new Timer();
         dockTimer.Interval = 120;
         dockTimer.Tick += delegate { CheckTuck(); };
+        // First look one minute after start, then whenever a day has passed since the last check.
+        updateTimer = new Timer();
+        updateTimer.Interval = 60 * 1000;
+        updateTimer.Tick += delegate
+        {
+            updateTimer.Interval = 60 * 60 * 1000;
+            if (settings.AutoUpdate && (DateTime.UtcNow - settings.LastUpdateCheck).TotalHours >= 24) CheckForUpdates(false, null, null);
+        };
         Sample();
     }
 
@@ -175,6 +188,14 @@ class MemBall : Form
     {
         foreach (ToolStripItem it in statItems) { menu.Items.Remove(it); it.Dispose(); }
         statItems.Clear();
+
+        if (pendingRelease != null)
+        {
+            ToolStripMenuItem upd = new ToolStripMenuItem(Lang.T("menu.update", Updater.Short(pendingRelease.Version)), null, delegate { ShowUpdate(); });
+            upd.Font = new Font(upd.Font, FontStyle.Bold);
+            statItems.Add(upd);
+            statItems.Add(new ToolStripSeparator());
+        }
 
         MEMSTATUS m = new MEMSTATUS();
         if (GlobalMemoryStatusEx(m))
@@ -344,12 +365,14 @@ class MemBall : Form
         if (!settings.Welcomed)
         {
             // First run: say how to use it, once.
+            balloonIsUpdate = false;
             tray.ShowBalloonTip(6000, Lang.T("welcome.title"), Lang.T("welcome.text"), ToolTipIcon.None);
             settings.Welcomed = true;
             try { settings.Save(SettingsFile); } catch (Exception ex) { LogOnce("savesettings", ex.ToString()); }
         }
         sampleTimer.Start();
         dockTimer.Start();
+        updateTimer.Start();
 
         // Ctrl+Alt+M, or Ctrl+Alt+Shift+M when another program already owns it (MOD_NOREPEAT on both).
         if (RegisterHotKey(Handle, HotkeyId, 0x0002 | 0x0001 | 0x4000, 0x4D)) hotkeyName = "Ctrl+Alt+M";
@@ -1157,6 +1180,7 @@ class MemBall : Form
         else if (!trayTipShown && tray != null)
         {
             trayTipShown = true;
+            balloonIsUpdate = false;
             tray.ShowBalloonTip(3000, Lang.T("tray.hidden"), hotkeyOk ? Lang.T("tray.howHotkey", hotkeyName) : Lang.T("tray.how"), ToolTipIcon.None);
         }
         UpdateVisibility();
@@ -1178,6 +1202,7 @@ class MemBall : Form
             tray = new NotifyIcon();
             ContextMenuStrip tm = new ContextMenuStrip(); // the tray only offers Exit; everything else is on the ball
             trayExitItem = new ToolStripMenuItem(Lang.T("menu.exit"), null, delegate { Exit(); });
+            tray.BalloonTipClicked += delegate { if (balloonIsUpdate) ShowUpdate(); };
             tm.Items.Add(trayExitItem);
             tray.ContextMenuStrip = tm;
             // Double click, so a stray single click on the tray cannot hide the ball.
@@ -1316,6 +1341,80 @@ class MemBall : Form
         exitItem.Text = Lang.T("menu.exit");
         if (trayExitItem != null) trayExitItem.Text = Lang.T("menu.exit");
     }
+
+    // ---------- updates ----------
+
+    // Asks GitHub for the latest release on a worker thread. manual: from the settings window, so report
+    // every outcome (and ignore "skip this version"); automatic checks stay silent unless there is news.
+    internal void CheckForUpdates(bool manual, IWin32Window owner, MethodInvoker done)
+    {
+        if (checkingUpdates) { if (done != null) done(); return; }
+        checkingUpdates = true;
+        System.Threading.Thread th = new System.Threading.Thread(delegate ()
+        {
+            Release rel = null;
+            Exception err = null;
+            try { rel = Updater.FetchLatest(); }
+            catch (Exception ex) { err = ex; }
+            Post(delegate
+            {
+                checkingUpdates = false;
+                try
+                {
+                    if (err != null)
+                    {
+                        LogOnce("updatecheck", "update check failed: " + err.Message);
+                        if (manual) MessageBox.Show(owner, Lang.T("upd.checkFailed", err.Message), "MemBall", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    settings.LastUpdateCheck = DateTime.UtcNow;
+                    try { settings.Save(SettingsFile); } catch (Exception ex) { LogOnce("savesettings", ex.ToString()); }
+                    if (rel.Version > Updater.Current)
+                    {
+                        pendingRelease = rel;
+                        string v = Updater.Short(rel.Version);
+                        if (manual) ShowUpdate();
+                        else if (v != settings.SkipVersion && tray != null)
+                        {
+                            balloonIsUpdate = true;
+                            tray.ShowBalloonTip(10000, Lang.T("upd.balloonTitle"), Lang.T("upd.balloonText", v), ToolTipIcon.None);
+                        }
+                    }
+                    else
+                    {
+                        pendingRelease = null;
+                        if (manual) MessageBox.Show(owner, Lang.T("upd.latest", Updater.Short(Updater.Current)), "MemBall", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+                finally { if (done != null) done(); }
+            });
+        });
+        th.IsBackground = true;
+        th.Start();
+    }
+
+    void ShowUpdate()
+    {
+        if (pendingRelease == null) return;
+        if (updateForm != null && !updateForm.IsDisposed) { updateForm.Activate(); return; }
+        updateForm = new UpdateForm(this, pendingRelease);
+        updateForm.FormClosed += delegate { updateForm = null; };
+        updateForm.Show();
+    }
+
+    internal void SkipVersion(string version)
+    {
+        settings.SkipVersion = version;
+        try { settings.Save(SettingsFile); } catch (Exception ex) { LogOnce("savesettings", ex.ToString()); }
+    }
+
+    // The update has been handed to the installer / the replaced exe: leave without restarting.
+    internal void ExitForUpdate()
+    {
+        Exit();
+    }
+
+    internal static void LogError(Exception ex) { Log(ex); }
 
     // Debug aids: show a given language without touching the saved settings.
     void ForceLanguage(string code)
@@ -1519,6 +1618,9 @@ class MemBall : Form
         sb.AppendLine("Language: " + Lang.Code + " (setting: " + settings.Language + ", system: " + System.Globalization.CultureInfo.CurrentUICulture.Name + ")");
         sb.AppendLine("Settings: hideInFullscreen=" + settings.HideInFullscreen + " tuck=" + settings.Tuck +
                       " tuckDelay=" + settings.TuckDelaySec + "s opacity=" + settings.Opacity + "%");
+        sb.AppendLine("Updates: auto=" + settings.AutoUpdate + " lastCheck=" + (settings.LastUpdateCheck == DateTime.MinValue ? "never" : settings.LastUpdateCheck.ToString("u")) +
+                      " skip=" + (settings.SkipVersion.Length > 0 ? settings.SkipVersion : "-") + " pending=" + (pendingRelease != null ? Updater.Short(pendingRelease.Version) : "-") +
+                      " installed=" + Updater.IsInstalled);
         sb.AppendLine("Position: " + Left + "," + Top + "  docked: " + (dock < 0 ? "left" : dock > 0 ? "right" : "no") +
                       "  hidden by user: " + (userHidden ? "yes" : "no"));
         TimeSpan up = DateTime.Now - startedAt;
@@ -1700,6 +1802,15 @@ class MemBall : Form
     [STAThread]
     static void Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--autostart")
+        {
+            // Used by the installer: create (pointing at this exe) or remove the logon task. Exit code 0 = done.
+            string err = null;
+            int rc = args[1] == "on" ? CreateAutostartTask(out err)
+                   : AutostartExists() ? RunSchtasks("/delete /tn " + TaskName + " /f", out err) : 0;
+            if (rc != 0) Log("--autostart " + args[1] + " failed (" + rc + "): " + err);
+            Environment.Exit(rc == 0 ? 0 : 1);
+        }
         // Debug aids below take an optional language (zh | en | fr) after the file name.
         string debugLang = args.Length == 3 ? args[2] : null;
         if ((args.Length == 2 || args.Length == 3) && args[0] == "--png")
@@ -1768,6 +1879,7 @@ class MemBall : Form
             return;
         }
         if (args.Length == 2 && args[0] == "--restart") int.TryParse(args[1], out restartCount);
+        bool afterUpdate = args.Length == 1 && args[0] == "--after-update";
 
         bool created;
         using (System.Threading.Mutex mx = new System.Threading.Mutex(true, "MemBall_single", out created))
@@ -1775,10 +1887,11 @@ class MemBall : Form
             if (!created)
             {
                 // A restart after a crash waits for the old instance to finish exiting.
-                if (restartCount == 0) return;
+                if (restartCount == 0 && !afterUpdate) return;
                 try { if (!mx.WaitOne(10000)) { Log("restart aborted: previous instance still running after 10 s"); return; } }
                 catch (System.Threading.AbandonedMutexException) { }
             }
+            Updater.CleanupOldExe(); // the previous exe after a portable self-update; its process is gone by now
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += OnUiException;
             AppDomain.CurrentDomain.UnhandledException += OnFatalException;

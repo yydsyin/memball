@@ -13,6 +13,9 @@ class Settings
     public double TuckDelaySec = 1.5;
     public int Opacity = 100;          // percent, 40..100
     public bool Welcomed;              // the first-run hint has been shown
+    public bool AutoUpdate = true;
+    public string SkipVersion = "";    // "Skip this version" in the update window
+    public DateTime LastUpdateCheck = DateTime.MinValue; // UTC
 
     public Settings Clone() { return (Settings)MemberwiseClone(); }
 
@@ -35,6 +38,13 @@ class Settings
                 else if (k == "tuckDelay" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) s.TuckDelaySec = d;
                 else if (k == "opacity" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) s.Opacity = (int)d;
                 else if (k == "welcomed") s.Welcomed = v == "1";
+                else if (k == "autoUpdate") s.AutoUpdate = v != "0";
+                else if (k == "skipVersion") s.SkipVersion = v;
+                else if (k == "lastUpdateCheck")
+                {
+                    DateTime t;
+                    if (DateTime.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out t)) s.LastUpdateCheck = t;
+                }
             }
         }
         catch { } // unreadable file: run with the defaults
@@ -51,7 +61,10 @@ class Settings
             "tuck=" + (Tuck ? "1" : "0") + "\r\n" +
             "tuckDelay=" + TuckDelaySec.ToString(CultureInfo.InvariantCulture) + "\r\n" +
             "opacity=" + Opacity + "\r\n" +
-            "welcomed=" + (Welcomed ? "1" : "0") + "\r\n";
+            "welcomed=" + (Welcomed ? "1" : "0") + "\r\n" +
+            "autoUpdate=" + (AutoUpdate ? "1" : "0") + "\r\n" +
+            "skipVersion=" + SkipVersion + "\r\n" +
+            "lastUpdateCheck=" + LastUpdateCheck.ToString("o", CultureInfo.InvariantCulture) + "\r\n";
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         string tmp = path + ".tmp";
         File.WriteAllText(tmp, text);
@@ -67,7 +80,8 @@ class SettingsForm : Form
     readonly MemBall ball;
     Settings current;
     readonly ComboBox langBox = new ComboBox();
-    readonly CheckBox autoBox = new CheckBox(), fsBox = new CheckBox(), tuckBox = new CheckBox();
+    readonly CheckBox autoBox = new CheckBox(), fsBox = new CheckBox(), tuckBox = new CheckBox(), updBox = new CheckBox();
+    readonly Button checkNow = new Button();
     readonly NumericUpDown delayBox = new NumericUpDown();
     readonly TrackBar opBar = new TrackBar();
     readonly Label opValue = new Label();
@@ -142,6 +156,17 @@ class SettingsForm : Form
 
         Row(t, Caption(Lang.T("set.hotkey")), Caption(hotkey ?? Lang.T("set.hotkeyNone")));
 
+        Check(updBox, Lang.T("set.autoUpdate"), cur.AutoUpdate);
+        Btn(checkNow, Lang.T("set.checkNow"));
+        checkNow.Margin = new Padding(P(14), 0, 0, 0);
+        checkNow.Click += delegate
+        {
+            checkNow.Enabled = false;
+            checkNow.Text = Lang.T("upd.checking");
+            ball.CheckForUpdates(true, this, delegate { if (!IsDisposed) { checkNow.Text = Lang.T("set.checkNow"); checkNow.Enabled = true; } });
+        };
+        Row(t, Flow(updBox, checkNow), null);
+
         Label version = Caption(Lang.T("set.version", Application.ProductVersion));
         version.ForeColor = SystemColors.GrayText;
         Row(t, version, null);
@@ -188,6 +213,7 @@ class SettingsForm : Form
         tuckBox.CheckedChanged += dirty;
         delayBox.ValueChanged += dirty;
         opBar.ValueChanged += dirty;
+        updBox.CheckedChanged += dirty;
     }
 
     // Returns true when the language changed.
@@ -199,6 +225,7 @@ class SettingsForm : Form
         s.Tuck = tuckBox.Checked;
         s.TuckDelaySec = (double)delayBox.Value;
         s.Opacity = opBar.Value;
+        s.AutoUpdate = updBox.Checked;
         bool langChanged = s.Language != current.Language;
         ball.ApplySettings(s, autoBox.Checked);
         current = s;
