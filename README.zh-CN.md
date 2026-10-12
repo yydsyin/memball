@@ -33,6 +33,8 @@ Windows 内存悬浮球：在屏幕边上显示内存占用和实时网速，单
 
 > 程序没有数字签名，首次运行时 Windows SmartScreen 可能提示“Windows 已保护你的电脑”。点击“更多信息”，再点“仍要运行”即可。
 
+VirusTotal 扫描结果：[MemBall.exe](https://www.virustotal.com/gui/file/f354bf7dd7a55ed0ad821ff95cb35505385ccb469b7996df9bc8c76a5d1dc5ed)、[MemBall-Setup.exe](https://www.virustotal.com/gui/file/57337ecdbe0089befa2f07c307a3c197be354314598a6c5e19d6581ac42ecaa5)。Microsoft Defender、卡巴斯基、ESET、BitDefender、火绒等主流引擎均未报毒；少数基于机器学习的引擎会标为可疑，因为这是一个新的、没有数字签名的程序，而且会结束进程、修剪内存、创建开机计划任务。
+
 ## 使用方法
 
 - **单击**悬浮球：清理内存
