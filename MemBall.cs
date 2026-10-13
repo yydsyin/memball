@@ -1439,11 +1439,16 @@ class MemBall : Form
             Post(delegate
             {
                 checkingUpdates = false;
+                // The settings window may have been closed while the check ran; a disposed owner would make
+                // MessageBox throw and the result would be lost, so fall back to no owner.
+                Form ownerForm = owner as Form;
+                if (ownerForm != null && ownerForm.IsDisposed) owner = null;
                 try
                 {
                     if (err != null)
                     {
-                        LogOnce("updatecheck", "update check failed: " + err.Message);
+                        // Every failure is logged (at most hourly): a boot-time network error must not hide a lasting one.
+                        Log("update check failed (" + (manual ? "manual" : "automatic") + "): " + err.Message);
                         if (manual) MessageBox.Show(owner, Lang.T("upd.checkFailed", err.Message), "MemBall", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
@@ -1794,13 +1799,19 @@ class MemBall : Form
             try
             {
                 Directory.CreateDirectory(DataDir);
-                FileInfo fi = new FileInfo(LogFile);
-                if (fi.Exists && fi.Length > 256 * 1024)
+                // A rotation that fails (error.old.log locked or read-only) must not stop the append below.
+                try
                 {
-                    string oldLog = Path.Combine(DataDir, "error.old.log");
-                    if (File.Exists(oldLog)) File.Delete(oldLog);
-                    fi.MoveTo(oldLog);
+                    FileInfo fi = new FileInfo(LogFile);
+                    if (fi.Exists && fi.Length > 256 * 1024)
+                    {
+                        string oldLog = Path.Combine(DataDir, "error.old.log");
+                        if (File.Exists(oldLog)) File.Delete(oldLog);
+                        fi.MoveTo(oldLog);
+                    }
                 }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
                 File.AppendAllText(LogFile, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + text + "\r\n\r\n");
             }
             catch { } // nowhere left to report a failure to write the log

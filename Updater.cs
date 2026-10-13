@@ -142,10 +142,14 @@ static class Updater
                 if (pct != lastPct) { lastPct = pct; progress(pct); }
             }
         }
-        bool ok = a.Size <= 0 || new FileInfo(path).Length == a.Size;
-        if (ok && a.Sha256 != null) ok = Sha256(path) == a.Sha256;
+        long size = new FileInfo(path).Length;
+        string hash = Sha256(path);
+        if (a.Sha256 == null) MemBall.Log("no SHA-256 digest published for " + a.Url + "; checked the size only");
+        bool ok = (a.Size <= 0 || size == a.Size) && (a.Sha256 == null || hash == a.Sha256);
         if (!ok)
         {
+            // Expected vs actual tells a truncated download or a proxy's HTML page apart from a changed file.
+            MemBall.Log("update verification failed: " + a.Url + " size " + size + " (expected " + a.Size + "), sha256 " + hash + " (expected " + (a.Sha256 ?? "none") + ")");
             File.Delete(path);
             throw new InvalidDataException(Lang.T("upd.badFile"));
         }
