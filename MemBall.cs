@@ -17,9 +17,9 @@ using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyTitle("MemBall")]
 [assembly: System.Reflection.AssemblyProduct("MemBall")]
 [assembly: System.Reflection.AssemblyDescription("Floating memory ball")]
-[assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersion("1.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.1.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion("1.1.0")]
 
 class MemBall : Form
 {
@@ -103,6 +103,7 @@ class MemBall : Form
     int cleanResult;  // 0 freed (freedText holds the amount), 1 already optimal, 2 failed
     string freedText;
     const double MinCleanMs = 750, ResultMs = 2600, PulseMs = 700;
+    DateTime nextAutoClean; // scheduled cleaning; manual cleans do not move it
 
     // Visibility: hidden by the user (menu / hotkey) or automatically while a full-screen app is in front.
     // Showing and hiding fade the whole window; it is only really hidden (SW_HIDE) once fully transparent.
@@ -161,7 +162,8 @@ class MemBall : Form
 
         sampleTimer = new Timer();
         sampleTimer.Interval = 1000;
-        sampleTimer.Tick += delegate { Sample(); UpdateVisibility(); KeepOnTop(); Render(); UpdateTray(); };
+        sampleTimer.Tick += delegate { Sample(); UpdateVisibility(); KeepOnTop(); AutoCleanTick(); Render(); UpdateTray(); };
+        nextAutoClean = DateTime.Now.AddMinutes(settings.AutoCleanMinutes);
         animTimer = new Timer();
         animTimer.Interval = 16;
         animTimer.Tick += delegate { Animate(); };
@@ -572,6 +574,17 @@ class MemBall : Form
         });
         worker.IsBackground = true;
         worker.Start();
+    }
+
+    // Runs every second. A clean that falls due while a full-screen app (a game, a video) is in front waits until
+    // it is gone, since trimming the app's memory would make it stutter; the next one is counted from when it ran.
+    void AutoCleanTick()
+    {
+        if (!settings.AutoClean || DateTime.Now < nextAutoClean || cleaning) return;
+        if (FullscreenAppActive(GetForegroundWindow())) return;
+        nextAutoClean = DateTime.Now.AddMinutes(settings.AutoCleanMinutes);
+        Note("scheduled clean");
+        Clean();
     }
 
     static long DoClean()
@@ -1471,6 +1484,9 @@ class MemBall : Form
     // Called by the settings window when the user presses OK.
     internal void ApplySettings(Settings s, bool autostart)
     {
+        // Turning the schedule on or changing its interval starts a fresh countdown.
+        if (s.AutoClean && (!settings.AutoClean || s.AutoCleanMinutes != settings.AutoCleanMinutes))
+            nextAutoClean = DateTime.Now.AddMinutes(s.AutoCleanMinutes);
         settings = s;
         try { settings.Save(SettingsFile); }
         catch (Exception ex) { LogOnce("savesettings", ex.ToString()); }
@@ -1651,7 +1667,8 @@ class MemBall : Form
         sb.AppendLine("Hotkey: " + (hotkeyName ?? "not registered (taken by another program)"));
         sb.AppendLine("Language: " + Lang.Code + " (setting: " + settings.Language + ", system: " + System.Globalization.CultureInfo.CurrentUICulture.Name + ")");
         sb.AppendLine("Settings: hideInFullscreen=" + settings.HideInFullscreen + " tuck=" + settings.Tuck +
-                      " tuckDelay=" + settings.TuckDelaySec + "s opacity=" + settings.Opacity + "%");
+                      " tuckDelay=" + settings.TuckDelaySec + "s opacity=" + settings.Opacity + "%" +
+                      " autoClean=" + (settings.AutoClean ? "every " + settings.AutoCleanMinutes + " min, next " + nextAutoClean.ToString("HH:mm") : "off"));
         sb.AppendLine("Updates: auto=" + settings.AutoUpdate + " lastCheck=" + (settings.LastUpdateCheck == DateTime.MinValue ? "never" : settings.LastUpdateCheck.ToString("u")) +
                       " skip=" + (settings.SkipVersion.Length > 0 ? settings.SkipVersion : "-") + " pending=" + (pendingRelease != null ? Updater.Short(pendingRelease.Version) : "-") +
                       " installed=" + Updater.IsInstalled);

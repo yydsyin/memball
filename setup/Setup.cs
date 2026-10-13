@@ -12,13 +12,13 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("MemBall Setup")]
 [assembly: AssemblyProduct("MemBall")]
 [assembly: AssemblyDescription("MemBall Setup")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
-[assembly: AssemblyInformationalVersion("1.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyInformationalVersion("1.1.0")]
 
 static class Setup
 {
-    public static readonly string Version = "1.0.0";
+    public static readonly string Version = "1.1.0";
     public static readonly string InstallDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "MemBall");
     static readonly string AppExe = Path.Combine(InstallDir, "MemBall.exe");
     static readonly string UninstallExe = Path.Combine(InstallDir, "uninstall.exe");

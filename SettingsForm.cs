@@ -12,6 +12,8 @@ class Settings
     public bool Tuck = true;
     public double TuckDelaySec = 1.5;
     public int Opacity = 100;          // percent, 40..100
+    public bool AutoClean;             // clean memory on a schedule
+    public int AutoCleanMinutes = 30;  // 5..720
     public bool Welcomed;              // the first-run hint has been shown
     public bool AutoUpdate = true;
     public string SkipVersion = "";    // "Skip this version" in the update window
@@ -37,6 +39,8 @@ class Settings
                 else if (k == "tuck") s.Tuck = v != "0";
                 else if (k == "tuckDelay" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) s.TuckDelaySec = d;
                 else if (k == "opacity" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) s.Opacity = (int)d;
+                else if (k == "autoClean") s.AutoClean = v == "1";
+                else if (k == "autoCleanMinutes" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) s.AutoCleanMinutes = (int)d;
                 else if (k == "welcomed") s.Welcomed = v == "1";
                 else if (k == "autoUpdate") s.AutoUpdate = v != "0";
                 else if (k == "skipVersion") s.SkipVersion = v;
@@ -50,6 +54,7 @@ class Settings
         catch { } // unreadable file: run with the defaults
         s.TuckDelaySec = Math.Max(0.5, Math.Min(10, s.TuckDelaySec));
         s.Opacity = Math.Max(40, Math.Min(100, s.Opacity));
+        s.AutoCleanMinutes = Math.Max(5, Math.Min(720, s.AutoCleanMinutes));
         return s;
     }
 
@@ -61,6 +66,8 @@ class Settings
             "tuck=" + (Tuck ? "1" : "0") + "\r\n" +
             "tuckDelay=" + TuckDelaySec.ToString(CultureInfo.InvariantCulture) + "\r\n" +
             "opacity=" + Opacity + "\r\n" +
+            "autoClean=" + (AutoClean ? "1" : "0") + "\r\n" +
+            "autoCleanMinutes=" + AutoCleanMinutes + "\r\n" +
             "welcomed=" + (Welcomed ? "1" : "0") + "\r\n" +
             "autoUpdate=" + (AutoUpdate ? "1" : "0") + "\r\n" +
             "skipVersion=" + SkipVersion + "\r\n" +
@@ -80,9 +87,9 @@ class SettingsForm : Form
     readonly MemBall ball;
     Settings current;
     readonly ComboBox langBox = new ComboBox();
-    readonly CheckBox autoBox = new CheckBox(), fsBox = new CheckBox(), tuckBox = new CheckBox(), updBox = new CheckBox();
+    readonly CheckBox autoBox = new CheckBox(), fsBox = new CheckBox(), tuckBox = new CheckBox(), updBox = new CheckBox(), cleanBox = new CheckBox();
     readonly Button checkNow = new Button();
-    readonly NumericUpDown delayBox = new NumericUpDown();
+    readonly NumericUpDown delayBox = new NumericUpDown(), cleanEvery = new NumericUpDown();
     readonly TrackBar opBar = new TrackBar();
     readonly Label opValue = new Label();
     readonly Button apply = new Button();
@@ -140,6 +147,20 @@ class SettingsForm : Form
         Row(t, Flow(delayCaption, delayBox, Caption(Lang.T("set.seconds"))), null);
         tuckBox.CheckedChanged += delegate { delayBox.Enabled = delayCaption.Enabled = tuckBox.Checked; };
         delayBox.Enabled = delayCaption.Enabled = cur.Tuck;
+
+        Check(cleanBox, Lang.T("set.autoClean"), cur.AutoClean);
+        Row(t, cleanBox, null);
+        cleanEvery.Minimum = 5;
+        cleanEvery.Maximum = 720;
+        cleanEvery.Increment = 5;
+        cleanEvery.Value = cur.AutoCleanMinutes;
+        cleanEvery.Width = P(64);
+        Label everyCaption = Caption(Lang.T("set.every"));
+        everyCaption.Margin = new Padding(P(20), P(6), P(6), P(6));
+        Label minutesCaption = Caption(Lang.T("set.minutes"));
+        Row(t, Flow(everyCaption, cleanEvery, minutesCaption), null);
+        cleanBox.CheckedChanged += delegate { cleanEvery.Enabled = everyCaption.Enabled = minutesCaption.Enabled = cleanBox.Checked; };
+        cleanEvery.Enabled = everyCaption.Enabled = minutesCaption.Enabled = cur.AutoClean;
 
         opBar.Minimum = 40;
         opBar.Maximum = 100;
@@ -214,6 +235,8 @@ class SettingsForm : Form
         delayBox.ValueChanged += dirty;
         opBar.ValueChanged += dirty;
         updBox.CheckedChanged += dirty;
+        cleanBox.CheckedChanged += dirty;
+        cleanEvery.ValueChanged += dirty;
     }
 
     // Returns true when the language changed.
@@ -226,6 +249,8 @@ class SettingsForm : Form
         s.TuckDelaySec = (double)delayBox.Value;
         s.Opacity = opBar.Value;
         s.AutoUpdate = updBox.Checked;
+        s.AutoClean = cleanBox.Checked;
+        s.AutoCleanMinutes = (int)cleanEvery.Value;
         bool langChanged = s.Language != current.Language;
         ball.ApplySettings(s, autoBox.Checked);
         current = s;
