@@ -1820,13 +1820,20 @@ class MemBall : Form
         try { if (current != null) current.RemoveTray(); } catch { }
         if (current != null && current.exitRequested) Environment.Exit(1); // the user already chose to quit
         int n = (DateTime.Now - startedAt).TotalSeconds < 60 ? restartCount + 1 : 1;
+        bool restarted = false;
         if (n <= 3)
         {
             Log("restarting after a crash (attempt " + n + " of 3)");
-            try { Process.Start(Application.ExecutablePath, "--restart " + n); }
+            try { Process.Start(Application.ExecutablePath, "--restart " + n); restarted = true; }
             catch (Exception ex) { Log("restart failed: " + ex); }
         }
         else Log("crashed again within a minute of 3 restarts; giving up. Start MemBall again to retry.");
+        // The ball and the tray icon are gone now: say so, and where the log is, instead of just vanishing.
+        if (!restarted)
+        {
+            try { MessageBox.Show(Lang.T("crash.gaveUp", LogFile), "MemBall", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            catch (Exception ex) { Log("could not show the crash message: " + ex.Message); }
+        }
         Environment.Exit(1);
     }
 

@@ -119,10 +119,18 @@ static class Setup
     }
 
     // Through the logon task when there is one, so it runs exactly as it will at every logon.
+    // Without a task, MemBall is started directly; when the UAC prompt was approved with another account, through
+    // Explorer, so it runs as the signed-in user rather than as the account that approved the installation.
     public static void Launch()
     {
         string err;
-        if (RunWait("schtasks.exe", "/run /tn MemBall", out err) != 0) Process.Start(AppExe);
+        int rc = RunWait("schtasks.exe", "/run /tn MemBall", out err);
+        if (rc == 0) return;
+        if (TaskExists()) LogSetup("schtasks /run failed (exit " + rc + "): " + err.Trim() + "; starting MemBall directly");
+        string user = SessionUser();
+        if (user != null && !string.Equals(user, System.Security.Principal.WindowsIdentity.GetCurrent().Name, StringComparison.OrdinalIgnoreCase))
+            Process.Start("explorer.exe", "\"" + AppExe + "\"");
+        else Process.Start(AppExe);
     }
 
     // ---------- uninstall ----------
@@ -141,13 +149,25 @@ static class Setup
         Registry.LocalMachine.DeleteSubKeyTree(UninstallKey, false);
         string data = UserData();
         if (deleteUserData && Directory.Exists(data)) Directory.Delete(data, true);
+        uninstalled = true;
+    }
 
-        // The folder holds this running uninstall.exe: remove it a moment after we have exited.
-        ProcessStartInfo psi = new ProcessStartInfo("cmd.exe", "/c ping -n 3 127.0.0.1 >nul & rmdir /s /q \"" + InstallDir + "\"");
+    static bool uninstalled;
+
+    // The folder holds this running uninstall.exe, so it is removed by a helper started as we exit, which keeps
+    // retrying for a minute until the file is no longer in use.
+    public static void RemoveFolderOnExit()
+    {
+        if (!uninstalled) return;
+        string dir = InstallDir.TrimEnd('\\');
+        ProcessStartInfo psi = new ProcessStartInfo("cmd.exe",
+            // The "if" goes last: cmd would otherwise treat the rest of the line as part of the "if" and skip the wait.
+            "/c for /l %i in (1,1,30) do (rmdir /s /q \"" + dir + "\" 2>nul & ping -n 3 127.0.0.1 >nul & if not exist \"" + dir + "\" exit /b 0)");
         psi.CreateNoWindow = true;
         psi.UseShellExecute = false;
         psi.WorkingDirectory = Path.GetTempPath();
-        Process.Start(psi);
+        try { Process.Start(psi); }
+        catch (Exception ex) { LogSetup("could not start removing " + dir + ": " + ex.Message); }
     }
 
     // ---------- helpers ----------
@@ -255,15 +275,17 @@ static class Setup
         // Quiet runs show nothing, so their failures go to %TEMP%\MemBall-setup.log (as do the others).
         if (uninstall)
         {
-            if (quiet) { try { Uninstall(false); } catch (Exception ex) { LogSetup("quiet uninstall failed: " + ex); Environment.Exit(1); } return; }
-            Application.Run(new UninstallForm());
+            if (quiet) { try { Uninstall(false); } catch (Exception ex) { LogSetup("quiet uninstall failed: " + ex); Environment.Exit(1); } }
+            else Application.Run(new UninstallForm());
+            RemoveFolderOnExit();
         }
         else if (update)
         {
             // Started by MemBall's updater: keep the user's choices, install, start MemBall again. MemBall was
             // stopped for the update, so it is started again even if a later install step failed.
             Exception failure = null;
-            try { Install(TaskExists(), File.Exists(DesktopLink)); }
+            bool installed = false;
+            try { Install(TaskExists(), File.Exists(DesktopLink)); installed = true; }
             catch (Exception ex) { failure = ex; }
             if (File.Exists(AppExe))
             {
@@ -272,8 +294,8 @@ static class Setup
             }
             if (failure != null)
             {
-                LogSetup("update failed: " + failure);
-                MessageBox.Show(Lang.T("setup.failed", failure.Message), "MemBall", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                LogSetup((installed ? "update installed, starting failed: " : "update failed: ") + failure);
+                MessageBox.Show(Lang.T(installed ? "setup.runFailed" : "setup.failed", failure.Message), "MemBall", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Environment.Exit(1);
             }
         }
@@ -427,7 +449,7 @@ class SetupForm : SetupWindow
                 catch (Exception ex)
                 {
                     Setup.LogSetup("starting MemBall failed: " + ex);
-                    MessageBox.Show(this, Lang.T("setup.failed", ex.Message), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, Lang.T("setup.runFailed", ex.Message), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             Close();
