@@ -103,7 +103,9 @@ class MemBall : Form
     int cleanResult;  // 0 freed (freedText holds the amount), 1 already optimal, 2 failed
     string freedText;
     const double MinCleanMs = 750, ResultMs = 2600, PulseMs = 700;
-    DateTime nextAutoClean; // scheduled cleaning; manual cleans do not move it
+    DateTime nextAutoClean;      // UTC; scheduled cleaning, manual cleans do not move it
+    bool autoCleanWaiting;       // a scheduled clean is due but waits for a full-screen app
+    volatile string lastAutoClean = "none yet";
 
     // Visibility: hidden by the user (menu / hotkey) or automatically while a full-screen app is in front.
     // Showing and hiding fade the whole window; it is only really hidden (SW_HIDE) once fully transparent.
@@ -163,7 +165,7 @@ class MemBall : Form
         sampleTimer = new Timer();
         sampleTimer.Interval = 1000;
         sampleTimer.Tick += delegate { Sample(); UpdateVisibility(); KeepOnTop(); AutoCleanTick(); Render(); UpdateTray(); };
-        nextAutoClean = DateTime.Now.AddMinutes(settings.AutoCleanMinutes);
+        nextAutoClean = DateTime.UtcNow.AddMinutes(settings.AutoCleanMinutes);
         animTimer = new Timer();
         animTimer.Interval = 16;
         animTimer.Tick += delegate { Animate(); };
@@ -398,7 +400,9 @@ class MemBall : Form
     void OnDisplayChanged(object o, EventArgs e) { Post(delegate { MoveTo(Left, Top); Render(); }); }
     void OnPowerChanged(object o, PowerModeChangedEventArgs e)
     {
-        if (e.Mode == PowerModes.Resume) Post(delegate { MoveTo(Left, Top); UpdateVisibility(); Render(); });
+        // After waking up, programs are paging their memory back in; trimming it right then would only slow them
+        // down, so a scheduled clean that came due during sleep waits one more interval.
+        if (e.Mode == PowerModes.Resume) Post(delegate { nextAutoClean = DateTime.UtcNow.AddMinutes(settings.AutoCleanMinutes); MoveTo(Left, Top); UpdateVisibility(); Render(); });
     }
     void OnSessionSwitch(object o, SessionSwitchEventArgs e)
     {
@@ -553,7 +557,9 @@ class MemBall : Form
         num = mb.ToString(mb < 100 ? "0.0" : "0"); unit = "M/s";
     }
 
-    void Clean()
+    void Clean() { Clean(false); }
+
+    void Clean(bool scheduled)
     {
         if (cleaning) return;
         cleaning = true;
@@ -563,30 +569,44 @@ class MemBall : Form
         animTimer.Start();
         System.Threading.Thread worker = new System.Threading.Thread(delegate ()
         {
+            string outcome;
             try
             {
                 long freed = DoClean();
-                if (freed < 10) cleanResult = 1;
-                else { freedText = freed >= 1024 ? (freed / 1024.0).ToString("0.0") + "G" : freed + "M"; cleanResult = 0; }
+                if (freed < 10) { cleanResult = 1; outcome = "nothing to free"; }
+                else { freedText = freed >= 1024 ? (freed / 1024.0).ToString("0.0") + "G" : freed + "M"; cleanResult = 0; outcome = "freed " + freed + " MB"; }
             }
-            catch (Exception ex) { Log(ex); cleanResult = 2; }
+            catch (Exception ex) { Log(ex); cleanResult = 2; outcome = "failed: " + ex.Message; }
             finally { cleanWorkDone = true; }
+            if (scheduled) lastAutoClean = DateTime.Now.ToString("yyyy-MM-dd HH:mm") + " " + outcome + " (" + lastCleanPath + ")";
         });
         worker.IsBackground = true;
         worker.Start();
     }
 
-    // Runs every second. A clean that falls due while a full-screen app (a game, a video) is in front waits until
-    // it is gone, since trimming the app's memory would make it stutter; the next one is counted from when it ran.
+    // Runs every second. Uses UTC so a daylight-saving change does not shift it, and never lets the next clean lie
+    // more than one interval ahead, so a clock set back (time sync, manual change) cannot stall the schedule.
+    // A clean that falls due while a full-screen app (a game, a video) is in front on any monitor waits until it
+    // is gone, since trimming the app's memory would make it stutter; the next one is counted from when it ran.
     void AutoCleanTick()
     {
-        if (!settings.AutoClean || DateTime.Now < nextAutoClean || cleaning) return;
-        if (FullscreenAppActive(GetForegroundWindow())) return;
-        nextAutoClean = DateTime.Now.AddMinutes(settings.AutoCleanMinutes);
+        if (!settings.AutoClean) return;
+        DateTime now = DateTime.UtcNow;
+        TimeSpan every = TimeSpan.FromMinutes(settings.AutoCleanMinutes);
+        if (nextAutoClean > now + every) nextAutoClean = now + every;
+        autoCleanWaiting = false;
+        if (now < nextAutoClean || cleaning) return;
+        if (FullscreenAppActive(GetForegroundWindow(), true)) { autoCleanWaiting = true; return; }
+        nextAutoClean = now + every;
         Note("scheduled clean");
-        Clean();
+        Clean(true);
     }
 
+    // How the last clean trimmed memory, for the diagnostics report.
+    static volatile string lastCleanPath = "none yet";
+
+    // Throws when nothing could be trimmed or memory cannot be read, so the ball shows "failed" instead of
+    // "already optimal" for a clean that did not happen.
     static long DoClean()
     {
         ulong before = AvailPhys();
@@ -599,16 +619,24 @@ class MemBall : Form
         {
             // Expected when not elevated; when elevated it means the system-wide trim broke, so leave a trace.
             LogOnce("clean-fallback", string.Format("NtSetSystemInformation 0x{0:X8} (privileges 0x{1:X8}, 0x{2:X8}); trimming per process instead", status, p1, p2));
-            // Not elevated: trim the processes we are allowed to touch.
+            // Not elevated: trim the processes we are allowed to touch. Most others refuse access, which is expected.
+            int trimmed = 0, total = 0;
             foreach (Process p in Process.GetProcesses())
             {
-                try { EmptyWorkingSet(p.Handle); } catch { }
+                total++;
+                try { if (EmptyWorkingSet(p.Handle)) trimmed++; }
+                catch (System.ComponentModel.Win32Exception) { }  // access denied
+                catch (InvalidOperationException) { }             // exited meanwhile
                 p.Dispose();
             }
+            lastCleanPath = "per process, " + trimmed + "/" + total + " trimmed";
+            if (trimmed == 0) throw new InvalidOperationException("no process could be trimmed (not running as administrator?)");
         }
+        else lastCleanPath = "system-wide";
         System.Threading.Thread.Sleep(300);
         ulong after = AvailPhys();
-        if (before == 0 || after == 0) return 0; // memory status unreadable: do not report a bogus amount
+        // Memory status unreadable: report a failure rather than a made-up amount.
+        if (before == 0 || after == 0) throw new InvalidOperationException("memory status could not be read");
         return after > before ? (long)((after - before) / (1024 * 1024)) : 0;
     }
 
@@ -1332,10 +1360,15 @@ class MemBall : Form
 
     static readonly uint SelfPid = (uint)Process.GetCurrentProcess().Id;
 
-    bool FullscreenAppActive(IntPtr fg)
+    bool FullscreenAppActive(IntPtr fg) { return FullscreenAppActive(fg, false); }
+
+    // anyMonitor = false: only a full-screen window on the ball's own monitor counts (that is when the ball hides).
+    // anyMonitor = true: one on any monitor counts (a scheduled clean must not trim a game on the other screen).
+    bool FullscreenAppActive(IntPtr fg, bool anyMonitor)
     {
         int st;
         if (SHQueryUserNotificationState(out st) == 0 && (st == 3 || st == 4)) return true; // D3D full screen, presentation mode
+        if (anyMonitor && st == 2) return true; // QUNS_BUSY: a full-screen app is running
         if (fg == IntPtr.Zero || fg == Handle || fg == GetShellWindow() || fg == GetDesktopWindow()) return false;
         uint pid;
         GetWindowThreadProcessId(fg, out pid);
@@ -1349,7 +1382,7 @@ class MemBall : Form
         RECT r;
         if (!GetWindowRect(fg, out r)) return false;
         Screen sc = Screen.FromHandle(fg);
-        if (!sc.Equals(Screen.FromPoint(new Point(Left + Width / 2, Top + Height / 2)))) return false;
+        if (!anyMonitor && !sc.Equals(Screen.FromPoint(new Point(Left + Width / 2, Top + Height / 2)))) return false;
         Rectangle b = sc.Bounds;
         return r.L <= b.Left && r.T <= b.Top && r.R >= b.Right && r.B >= b.Bottom;
     }
@@ -1482,14 +1515,16 @@ class MemBall : Form
     }
 
     // Called by the settings window when the user presses OK.
-    internal void ApplySettings(Settings s, bool autostart)
+    // Returns false when settings.txt could not be written: the changes then only last until MemBall restarts.
+    internal bool ApplySettings(Settings s, bool autostart)
     {
         // Turning the schedule on or changing its interval starts a fresh countdown.
         if (s.AutoClean && (!settings.AutoClean || s.AutoCleanMinutes != settings.AutoCleanMinutes))
-            nextAutoClean = DateTime.Now.AddMinutes(s.AutoCleanMinutes);
+            nextAutoClean = DateTime.UtcNow.AddMinutes(s.AutoCleanMinutes);
         settings = s;
+        bool saved = true;
         try { settings.Save(SettingsFile); }
-        catch (Exception ex) { LogOnce("savesettings", ex.ToString()); }
+        catch (Exception ex) { Log("saving settings failed: " + ex); saved = false; }
         SetAutostart(autostart);
         Lang.Code = Lang.Resolve(settings.Language);
         ApplyLanguage();
@@ -1497,6 +1532,7 @@ class MemBall : Form
         UpdateVisibility();
         UpdateTray();
         Render();
+        return saved;
     }
 
     // Plain "schtasks /create" would not start the task on battery, stop it when unplugged and kill it
@@ -1668,7 +1704,9 @@ class MemBall : Form
         sb.AppendLine("Language: " + Lang.Code + " (setting: " + settings.Language + ", system: " + System.Globalization.CultureInfo.CurrentUICulture.Name + ")");
         sb.AppendLine("Settings: hideInFullscreen=" + settings.HideInFullscreen + " tuck=" + settings.Tuck +
                       " tuckDelay=" + settings.TuckDelaySec + "s opacity=" + settings.Opacity + "%" +
-                      " autoClean=" + (settings.AutoClean ? "every " + settings.AutoCleanMinutes + " min, next " + nextAutoClean.ToString("HH:mm") : "off"));
+                      " autoClean=" + (settings.AutoClean ? "every " + settings.AutoCleanMinutes + " min, next " + nextAutoClean.ToLocalTime().ToString("yyyy-MM-dd HH:mm") +
+                                                            (autoCleanWaiting ? " (due, waiting for a full-screen app)" : "") : "off"));
+        sb.AppendLine("Cleaning: last scheduled " + lastAutoClean + "; last method " + lastCleanPath);
         sb.AppendLine("Updates: auto=" + settings.AutoUpdate + " lastCheck=" + (settings.LastUpdateCheck == DateTime.MinValue ? "never" : settings.LastUpdateCheck.ToString("u")) +
                       " skip=" + (settings.SkipVersion.Length > 0 ? settings.SkipVersion : "-") + " pending=" + (pendingRelease != null ? Updater.Short(pendingRelease.Version) : "-") +
                       " installed=" + Updater.IsInstalled);

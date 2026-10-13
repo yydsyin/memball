@@ -100,6 +100,9 @@ static class Lang
         { "set.ok",          new[] { "确定",                         "OK",                                      "OK" } },
         { "set.apply",       new[] { "应用",                         "Apply",                                   "Appliquer" } },
         { "set.cancel",      new[] { "取消",                         "Cancel",                                  "Annuler" } },
+        { "set.saveFailed",  new[] { "设置无法保存，MemBall 重启后会恢复为原来的设置。详情见错误日志。",
+                                     "The settings could not be saved, so they will be lost when MemBall restarts. See the error log for details.",
+                                     "Les paramètres n'ont pas pu être enregistrés : ils seront perdus au redémarrage de MemBall. Voir le journal d'erreurs pour les détails." } },
 
         // updates (Updater.cs)
         { "menu.update",     new[] { "更新到 {0}…",                  "Update to {0}…",                          "Mettre à jour vers {0}…" } },

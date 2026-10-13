@@ -252,7 +252,8 @@ class SettingsForm : Form
         s.AutoClean = cleanBox.Checked;
         s.AutoCleanMinutes = (int)cleanEvery.Value;
         bool langChanged = s.Language != current.Language;
-        ball.ApplySettings(s, autoBox.Checked);
+        if (!ball.ApplySettings(s, autoBox.Checked))
+            MessageBox.Show(this, Lang.T("set.saveFailed"), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         current = s;
         return langChanged;
     }
