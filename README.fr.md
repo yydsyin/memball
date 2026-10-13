@@ -34,7 +34,7 @@ Configuration requise : Windows 10 ou 11 (le .NET Framework 4.8 nécessaire fait
 
 > Le programme n'est pas signé numériquement : au premier lancement, Windows SmartScreen peut afficher « Windows a protégé votre ordinateur ». Cliquez sur « Informations complémentaires », puis sur « Exécuter quand même ».
 
-Analyses VirusTotal : [MemBall.exe](https://www.virustotal.com/gui/file/f354bf7dd7a55ed0ad821ff95cb35505385ccb469b7996df9bc8c76a5d1dc5ed), [MemBall-Setup.exe](https://www.virustotal.com/gui/file/57337ecdbe0089befa2f07c307a3c197be354314598a6c5e19d6581ac42ecaa5). Les principaux moteurs, comme Microsoft Defender, Kaspersky, ESET, BitDefender et Avast, ne signalent rien. Quelques moteurs à apprentissage automatique le jugent suspect, car c'est un programme récent, sans signature numérique, qui arrête des processus, réduit la mémoire et crée une tâche d'ouverture de session.
+Analyses VirusTotal : [MemBall.exe](https://www.virustotal.com/gui/file/417c48f418825627855a00d42354a7e8e672ed041f618b760f8902cd085c0842), [MemBall-Setup.exe](https://www.virustotal.com/gui/file/8177aa6044c847d22a328a1dcb1abf04f17d3b56ece12b8fe8968a7df7555905). Les principaux moteurs, comme Microsoft Defender, Kaspersky, ESET, BitDefender et Avast, ne signalent rien. Quelques moteurs à apprentissage automatique le jugent suspect, car c'est un programme récent, sans signature numérique, qui arrête des processus, réduit la mémoire et crée une tâche d'ouverture de session.
 
 ## Historique des versions
 
