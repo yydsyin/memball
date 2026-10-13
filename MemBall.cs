@@ -82,6 +82,10 @@ class MemBall : Form
     UpdateForm updateForm;
     Timer updateTimer;
     volatile bool checkingUpdates;
+    // "Check now" pressed while the automatic check was running: answered when that check finishes (UI thread only).
+    bool manualWaiting;
+    IWin32Window manualOwner;
+    MethodInvoker manualDone;
     bool balloonIsUpdate;        // the last tray balloon announced an update
 
     // Logical layout (96 dpi units)
@@ -1428,7 +1432,14 @@ class MemBall : Form
     // every outcome (and ignore "skip this version"); automatic checks stay silent unless there is news.
     internal void CheckForUpdates(bool manual, IWin32Window owner, MethodInvoker done)
     {
-        if (checkingUpdates) { if (done != null) done(); return; }
+        if (checkingUpdates)
+        {
+            // A check is already running (the automatic one): report its result to this manual request too,
+            // instead of silently doing nothing.
+            if (manual) { manualWaiting = true; manualOwner = owner; manualDone = done; }
+            else if (done != null) done();
+            return;
+        }
         checkingUpdates = true;
         System.Threading.Thread th = new System.Threading.Thread(delegate ()
         {
@@ -1439,6 +1450,14 @@ class MemBall : Form
             Post(delegate
             {
                 checkingUpdates = false;
+                if (manualWaiting)
+                {
+                    MethodInvoker first = done, waiting = manualDone;
+                    manual = true;
+                    owner = manualOwner;
+                    done = delegate { if (first != null) first(); if (waiting != null) waiting(); };
+                    manualWaiting = false; manualOwner = null; manualDone = null;
+                }
                 // The settings window may have been closed while the check ran; a disposed owner would make
                 // MessageBox throw and the result would be lost, so fall back to no owner.
                 Form ownerForm = owner as Form;
