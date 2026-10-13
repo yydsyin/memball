@@ -36,6 +36,10 @@ Configuration requise : Windows 10 ou 11 (le .NET Framework 4.8 nécessaire fait
 
 Analyses VirusTotal : [MemBall.exe](https://www.virustotal.com/gui/file/f354bf7dd7a55ed0ad821ff95cb35505385ccb469b7996df9bc8c76a5d1dc5ed), [MemBall-Setup.exe](https://www.virustotal.com/gui/file/57337ecdbe0089befa2f07c307a3c197be354314598a6c5e19d6581ac42ecaa5). Les principaux moteurs, comme Microsoft Defender, Kaspersky, ESET, BitDefender et Avast, ne signalent rien. Quelques moteurs à apprentissage automatique le jugent suspect, car c'est un programme récent, sans signature numérique, qui arrête des processus, réduit la mémoire et crée une tâche d'ouverture de session.
 
+## Historique des versions
+
+Les changements de chaque version sont décrits sur la page [Releases](https://github.com/yydsyin/memball/releases). La version installée comme la version portable vous préviennent quand une nouvelle version sort, et la fenêtre de mise à jour affiche aussi ces notes.
+
 ## Utilisation
 
 - **Clic** sur la boule : nettoyer la mémoire

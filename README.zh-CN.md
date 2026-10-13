@@ -36,6 +36,10 @@ Windows 内存悬浮球：在屏幕边上显示内存占用和实时网速，单
 
 VirusTotal 扫描结果：[MemBall.exe](https://www.virustotal.com/gui/file/f354bf7dd7a55ed0ad821ff95cb35505385ccb469b7996df9bc8c76a5d1dc5ed)、[MemBall-Setup.exe](https://www.virustotal.com/gui/file/57337ecdbe0089befa2f07c307a3c197be354314598a6c5e19d6581ac42ecaa5)。Microsoft Defender、卡巴斯基、ESET、BitDefender、火绒等主流引擎均未报毒；少数基于机器学习的引擎会标为可疑，因为这是一个新的、没有数字签名的程序，而且会结束进程、修剪内存、创建开机计划任务。
 
+## 更新日志
+
+每个版本改了什么，见 [Releases](https://github.com/yydsyin/memball/releases) 页面。安装版和免安装版都会在有新版本时提醒你，更新窗口里也会显示这些说明。
+
 ## 使用方法
 
 - **单击**悬浮球：清理内存
