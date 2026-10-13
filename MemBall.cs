@@ -17,9 +17,9 @@ using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyTitle("MemBall")]
 [assembly: System.Reflection.AssemblyProduct("MemBall")]
 [assembly: System.Reflection.AssemblyDescription("Floating memory ball")]
-[assembly: System.Reflection.AssemblyVersion("1.1.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.1.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersion("1.1.0")]
+[assembly: System.Reflection.AssemblyVersion("1.1.1.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.1.1.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion("1.1.1")]
 
 class MemBall : Form
 {
