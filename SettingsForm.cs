@@ -141,12 +141,13 @@ class SettingsForm : Form
         delayBox.Maximum = 10m;
         delayBox.Value = (decimal)cur.TuckDelaySec;
         delayBox.Width = P(64);
-        // One row across both columns, indented under its checkbox, so a long caption does not widen the left column.
-        Label delayCaption = Caption(Lang.T("set.tuckDelay"));
-        delayCaption.Margin = new Padding(P(20), P(6), P(6), P(6));
-        Row(t, Flow(delayCaption, delayBox, Caption(Lang.T("set.seconds"))), null);
-        tuckBox.CheckedChanged += delegate { delayBox.Enabled = delayCaption.Enabled = tuckBox.Checked; };
-        delayBox.Enabled = delayCaption.Enabled = cur.Tuck;
+        // Sub-options: caption indented under its checkbox in the left column, the value in the right column,
+        // so every input lines up with the language box and the opacity slider.
+        Label delayCaption = SubCaption(Lang.T("set.tuckDelay"));
+        Label secondsCaption = Caption(Lang.T("set.seconds"));
+        Row(t, delayCaption, Flow(delayBox, secondsCaption));
+        tuckBox.CheckedChanged += delegate { delayBox.Enabled = delayCaption.Enabled = secondsCaption.Enabled = tuckBox.Checked; };
+        delayBox.Enabled = delayCaption.Enabled = secondsCaption.Enabled = cur.Tuck;
 
         Check(cleanBox, Lang.T("set.autoClean"), cur.AutoClean);
         Row(t, cleanBox, null);
@@ -155,10 +156,9 @@ class SettingsForm : Form
         cleanEvery.Increment = 5;
         cleanEvery.Value = cur.AutoCleanMinutes;
         cleanEvery.Width = P(64);
-        Label everyCaption = Caption(Lang.T("set.every"));
-        everyCaption.Margin = new Padding(P(20), P(6), P(6), P(6));
+        Label everyCaption = SubCaption(Lang.T("set.every"));
         Label minutesCaption = Caption(Lang.T("set.minutes"));
-        Row(t, Flow(everyCaption, cleanEvery, minutesCaption), null);
+        Row(t, everyCaption, Flow(cleanEvery, minutesCaption));
         cleanBox.CheckedChanged += delegate { cleanEvery.Enabled = everyCaption.Enabled = minutesCaption.Enabled = cleanBox.Checked; };
         cleanEvery.Enabled = everyCaption.Enabled = minutesCaption.Enabled = cur.AutoClean;
 
@@ -179,14 +179,14 @@ class SettingsForm : Form
 
         Check(updBox, Lang.T("set.autoUpdate"), cur.AutoUpdate);
         Btn(checkNow, Lang.T("set.checkNow"));
-        checkNow.Margin = new Padding(P(14), 0, 0, 0);
+        checkNow.Anchor = AnchorStyles.Left;
         checkNow.Click += delegate
         {
             checkNow.Enabled = false;
             checkNow.Text = Lang.T("upd.checking");
             ball.CheckForUpdates(true, this, delegate { if (!IsDisposed) { checkNow.Text = Lang.T("set.checkNow"); checkNow.Enabled = true; } });
         };
-        Row(t, Flow(updBox, checkNow), null);
+        Row(t, updBox, checkNow);
 
         Label version = Caption(Lang.T("set.version", Application.ProductVersion));
         version.ForeColor = SystemColors.GrayText;
@@ -275,6 +275,13 @@ class SettingsForm : Form
         l.AutoSize = true;
         l.Anchor = AnchorStyles.Left;
         l.Margin = new Padding(0, P(6), P(14), P(6));
+        return l;
+    }
+
+    Label SubCaption(string text)
+    {
+        Label l = Caption(text);
+        l.Margin = new Padding(P(20), P(6), P(14), P(6));
         return l;
     }
 
