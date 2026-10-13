@@ -51,7 +51,12 @@ class Settings
                 }
             }
         }
-        catch { } // unreadable file: run with the defaults
+        catch (Exception ex)
+        {
+            // Unreadable file: run with the defaults, but keep a copy, since the next save will overwrite it.
+            MemBall.Log("reading settings failed, using defaults: " + ex.Message);
+            try { File.Copy(path, path + ".unreadable", true); } catch (Exception copyEx) { MemBall.Log("keeping a copy of the unreadable settings failed: " + copyEx.Message); }
+        }
         s.TuckDelaySec = Math.Max(0.5, Math.Min(10, s.TuckDelaySec));
         s.Opacity = Math.Max(40, Math.Min(100, s.Opacity));
         s.AutoCleanMinutes = Math.Max(5, Math.Min(720, s.AutoCleanMinutes));

@@ -372,7 +372,7 @@ class MemBall : Form
             balloonIsUpdate = false;
             tray.ShowBalloonTip(6000, Lang.T("welcome.title"), Lang.T("welcome.text"), ToolTipIcon.None);
             settings.Welcomed = true;
-            try { settings.Save(SettingsFile); } catch (Exception ex) { LogOnce("savesettings", ex.ToString()); }
+            try { settings.Save(SettingsFile); } catch (Exception ex) { Log("saving settings failed: " + ex); }
         }
         sampleTimer.Start();
         dockTimer.Start();
@@ -1448,7 +1448,7 @@ class MemBall : Form
                         return;
                     }
                     settings.LastUpdateCheck = DateTime.UtcNow;
-                    try { settings.Save(SettingsFile); } catch (Exception ex) { LogOnce("savesettings", ex.ToString()); }
+                    try { settings.Save(SettingsFile); } catch (Exception ex) { Log("saving settings failed: " + ex); }
                     if (rel.Version > Updater.Current)
                     {
                         pendingRelease = rel;
@@ -1485,7 +1485,7 @@ class MemBall : Form
     internal void SkipVersion(string version)
     {
         settings.SkipVersion = version;
-        try { settings.Save(SettingsFile); } catch (Exception ex) { LogOnce("savesettings", ex.ToString()); }
+        try { settings.Save(SettingsFile); } catch (Exception ex) { Log("saving settings failed: " + ex); }
     }
 
     // The update has been handed to the installer / the replaced exe: leave without restarting.
@@ -1537,9 +1537,12 @@ class MemBall : Form
 
     // Plain "schtasks /create" would not start the task on battery, stop it when unplugged and kill it
     // after 72 hours, so the task is defined from XML: run at logon, elevated, on battery, without time limit.
-    static int CreateAutostartTask(out string err)
+    static int CreateAutostartTask(out string err) { return CreateAutostartTask(null, out err); }
+
+    // forUser: DOMAIN\name of the user whose logon starts MemBall; null = the account this process runs as.
+    static int CreateAutostartTask(string forUser, out string err)
     {
-        string user = System.Security.SecurityElement.Escape(System.Security.Principal.WindowsIdentity.GetCurrent().Name);
+        string user = System.Security.SecurityElement.Escape(forUser ?? System.Security.Principal.WindowsIdentity.GetCurrent().Name);
         string exe = System.Security.SecurityElement.Escape(Application.ExecutablePath);
         string xml =
             "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\r\n" +
@@ -1670,13 +1673,16 @@ class MemBall : Form
             try
             {
                 File.WriteAllText(d.FileName, BuildReport(), new UTF8Encoding(true));
-                Process.Start("explorer.exe", "/select,\"" + d.FileName + "\"");
             }
             catch (Exception ex)
             {
                 Log(ex);
                 MessageBox.Show(owner, Lang.T("export.failed", ex.Message), "MemBall", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
             }
+            // The report is saved; failing to show it in Explorer is only logged.
+            try { Process.Start("explorer.exe", "/select,\"" + d.FileName + "\""); }
+            catch (Exception ex) { Log(ex); }
         }
     }
 
@@ -1781,7 +1787,7 @@ class MemBall : Form
 
     // Appends to error.log (UI and clean threads may log at once). Past 256 KB the log moves to
     // error.old.log, so the first, most useful entries survive one rotation.
-    static void Log(string text)
+    internal static void Log(string text)
     {
         lock (logLock)
         {
@@ -1891,13 +1897,18 @@ class MemBall : Form
     [STAThread]
     static void Main(string[] args)
     {
-        if (args.Length == 2 && args[0] == "--autostart")
+        if ((args.Length == 2 || args.Length == 3) && args[0] == "--autostart")
         {
-            // Used by the installer: create (pointing at this exe) or remove the logon task. Exit code 0 = done.
+            // Used by the installer: create (pointing at this exe, for the given user) or remove the logon task.
+            // Exit code 0 = done; on failure the reason also goes to stderr for the installer to show.
             string err = null;
-            int rc = args[1] == "on" ? CreateAutostartTask(out err)
+            int rc = args[1] == "on" ? CreateAutostartTask(args.Length == 3 ? args[2] : null, out err)
                    : AutostartExists() ? RunSchtasks("/delete /tn " + TaskName + " /f", out err) : 0;
-            if (rc != 0) Log("--autostart " + args[1] + " failed (" + rc + "): " + err);
+            if (rc != 0)
+            {
+                Log("--autostart " + args[1] + " failed (" + rc + "): " + err);
+                try { Console.Error.Write("schtasks " + rc + ": " + err); } catch (IOException) { }
+            }
             Environment.Exit(rc == 0 ? 0 : 1);
         }
         // Debug aids below take an optional language (zh | en | fr) after the file name.

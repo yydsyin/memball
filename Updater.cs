@@ -263,7 +263,12 @@ class UpdateForm : Form
         page.Text = Lang.T("upd.openPage");
         page.AutoSize = true;
         page.Visible = false;
-        page.LinkClicked += delegate { try { Process.Start(rel.PageUrl); } catch { } };
+        page.LinkClicked += delegate
+        {
+            // No browser registered: show the address so it can still be copied.
+            try { Process.Start(rel.PageUrl); }
+            catch (Exception ex) { MemBall.Log("opening the release page failed: " + ex.Message); MessageBox.Show(this, rel.PageUrl, Text); }
+        };
         t.Controls.Add(page);
 
         foreach (Button b in new[] { now, later, skip })

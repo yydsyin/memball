@@ -24,8 +24,59 @@ static class Setup
     static readonly string UninstallExe = Path.Combine(InstallDir, "uninstall.exe");
     static readonly string StartMenuLink = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "MemBall.lnk");
     static readonly string DesktopLink = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), "MemBall.lnk");
-    static readonly string UserData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemBall");
     const string UninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MemBall";
+    static readonly string SetupLog = Path.Combine(Path.GetTempPath(), "MemBall-setup.log");
+
+    // ---------- the signed-in user ----------
+    // Setup runs elevated. When a standard user approves the UAC prompt with another account's password, the
+    // elevated account is not the person at the keyboard: the logon task and the user data belong to the latter.
+
+    [DllImport("wtsapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern bool WTSQuerySessionInformation(IntPtr server, int session, int infoClass, out IntPtr buffer, out int bytes);
+    [DllImport("wtsapi32.dll")] static extern void WTSFreeMemory(IntPtr p);
+
+    static string SessionInfo(int infoClass)
+    {
+        IntPtr buf; int n;
+        if (!WTSQuerySessionInformation(IntPtr.Zero, -1, infoClass, out buf, out n)) return null; // this server, this session
+        try { return Marshal.PtrToStringUni(buf); }
+        finally { WTSFreeMemory(buf); }
+    }
+
+    // DOMAIN\name of the user signed in to this session, or null if it cannot be read.
+    public static string SessionUser()
+    {
+        string name = SessionInfo(5), domain = SessionInfo(7); // WTSUserName, WTSDomainName
+        if (string.IsNullOrEmpty(name)) return null;
+        return string.IsNullOrEmpty(domain) ? name : domain + "\\" + name;
+    }
+
+    // %LOCALAPPDATA%\MemBall of the signed-in user (through the profile list), falling back to this account's.
+    static string UserData()
+    {
+        string user = SessionUser();
+        if (user != null)
+        {
+            try
+            {
+                string sid = new System.Security.Principal.NTAccount(user).Translate(typeof(System.Security.Principal.SecurityIdentifier)).Value;
+                using (RegistryKey k = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\" + sid))
+                {
+                    string profile = k == null ? null : k.GetValue("ProfileImagePath") as string;
+                    if (!string.IsNullOrEmpty(profile)) return Path.Combine(Environment.ExpandEnvironmentVariables(profile), @"AppData\Local\MemBall");
+                }
+            }
+            catch (Exception ex) { LogSetup("profile of " + user + " not found, using this account's: " + ex.Message); }
+        }
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemBall");
+    }
+
+    public static void LogSetup(string text)
+    {
+        try { File.AppendAllText(SetupLog, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + Version + "  " + text + "\r\n"); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
 
     public static bool AlreadyInstalled() { return File.Exists(AppExe); }
 
@@ -59,15 +110,19 @@ static class Setup
             k.SetValue("EstimatedSize", (int)((new FileInfo(AppExe).Length + new FileInfo(UninstallExe).Length) / 1024), RegistryValueKind.DWord);
         }
 
-        // MemBall.exe owns the logon-task definition; let it create or remove the task.
-        if (RunWait(AppExe, "--autostart " + (autostart ? "on" : "off")) != 0)
-            throw new Exception("autostart (" + (autostart ? "on" : "off") + ")");
+        // MemBall.exe owns the logon-task definition; let it create or remove the task, for the signed-in user.
+        string user = SessionUser();
+        string err;
+        int rc = RunWait(AppExe, autostart ? "--autostart on" + (user != null ? " \"" + user + "\"" : "") : "--autostart off", out err);
+        if (rc != 0)
+            throw new Exception("autostart " + (autostart ? "on" : "off") + " (exit " + rc + ")" + (string.IsNullOrEmpty(err) ? "" : ": " + err.Trim()));
     }
 
     // Through the logon task when there is one, so it runs exactly as it will at every logon.
     public static void Launch()
     {
-        if (RunWait("schtasks.exe", "/run /tn MemBall") != 0) Process.Start(AppExe);
+        string err;
+        if (RunWait("schtasks.exe", "/run /tn MemBall", out err) != 0) Process.Start(AppExe);
     }
 
     // ---------- uninstall ----------
@@ -75,12 +130,17 @@ static class Setup
     public static void Uninstall(bool deleteUserData)
     {
         StopMemBall();
-        if (File.Exists(AppExe)) RunWait(AppExe, "--autostart off");
-        else RunWait("schtasks.exe", "/delete /tn MemBall /f");
+        // Remove the logon task first, and stop if it is still there: deleting the files anyway would leave an
+        // elevated task that fails silently at every logon.
+        string err;
+        int rc = File.Exists(AppExe) ? RunWait(AppExe, "--autostart off", out err) : RunWait("schtasks.exe", "/delete /tn MemBall /f", out err);
+        if (rc != 0 && TaskExists())
+            throw new Exception("the logon task could not be removed (exit " + rc + ")" + (string.IsNullOrEmpty(err) ? "" : ": " + err.Trim()));
         foreach (string link in new[] { StartMenuLink, DesktopLink })
             if (File.Exists(link)) File.Delete(link);
         Registry.LocalMachine.DeleteSubKeyTree(UninstallKey, false);
-        if (deleteUserData && Directory.Exists(UserData)) Directory.Delete(UserData, true);
+        string data = UserData();
+        if (deleteUserData && Directory.Exists(data)) Directory.Delete(data, true);
 
         // The folder holds this running uninstall.exe: remove it a moment after we have exited.
         ProcessStartInfo psi = new ProcessStartInfo("cmd.exe", "/c ping -n 3 127.0.0.1 >nul & rmdir /s /q \"" + InstallDir + "\"");
@@ -122,14 +182,24 @@ static class Setup
         }
     }
 
-    static int RunWait(string exe, string args)
+    public static bool TaskExists() { string err; return RunWait("schtasks.exe", "/query /tn MemBall", out err) == 0; }
+
+    // Exit code (-1 after a 30 s timeout) and whatever the program wrote to stderr.
+    static int RunWait(string exe, string args, out string err)
     {
         ProcessStartInfo psi = new ProcessStartInfo(exe, args);
         psi.CreateNoWindow = true;
         psi.UseShellExecute = false;
+        psi.RedirectStandardError = true;
+        psi.RedirectStandardOutput = true;
         using (Process p = Process.Start(psi))
         {
-            if (!p.WaitForExit(30000)) return -1;
+            System.Threading.Tasks.Task<string> e = p.StandardError.ReadToEndAsync();
+            System.Threading.Tasks.Task<string> o = p.StandardOutput.ReadToEndAsync(); // drained so a chatty child cannot block
+            bool done = p.WaitForExit(30000);
+            err = e.Wait(1000) ? e.Result : "";
+            o.Wait(1000);
+            if (!done) { err = "timed out after 30 s. " + err; return -1; }
             return p.ExitCode;
         }
     }
@@ -182,28 +252,34 @@ static class Setup
             return;
         }
 
+        // Quiet runs show nothing, so their failures go to %TEMP%\MemBall-setup.log (as do the others).
         if (uninstall)
         {
-            if (quiet) { try { Uninstall(false); } catch { Environment.Exit(1); } return; }
+            if (quiet) { try { Uninstall(false); } catch (Exception ex) { LogSetup("quiet uninstall failed: " + ex); Environment.Exit(1); } return; }
             Application.Run(new UninstallForm());
         }
         else if (update)
         {
-            // Started by MemBall's updater: keep the user's choices, install, start MemBall again.
-            try
+            // Started by MemBall's updater: keep the user's choices, install, start MemBall again. MemBall was
+            // stopped for the update, so it is started again even if a later install step failed.
+            Exception failure = null;
+            try { Install(TaskExists(), File.Exists(DesktopLink)); }
+            catch (Exception ex) { failure = ex; }
+            if (File.Exists(AppExe))
             {
-                Install(RunWait("schtasks.exe", "/query /tn MemBall") == 0, File.Exists(DesktopLink));
-                Launch();
+                try { Launch(); }
+                catch (Exception ex) { if (failure == null) failure = ex; }
             }
-            catch (Exception ex)
+            if (failure != null)
             {
-                MessageBox.Show(Lang.T("setup.failed", ex.Message), "MemBall", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                LogSetup("update failed: " + failure);
+                MessageBox.Show(Lang.T("setup.failed", failure.Message), "MemBall", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Environment.Exit(1);
             }
         }
         else
         {
-            if (quiet) { try { Install(true, false); } catch { Environment.Exit(1); } return; }
+            if (quiet) { try { Install(true, false); } catch (Exception ex) { LogSetup("quiet install failed: " + ex); Environment.Exit(1); } return; }
             Application.Run(new SetupForm());
         }
     }
@@ -345,7 +421,15 @@ class SetupForm : SetupWindow
     {
         if (finished)
         {
-            if (runBox.Checked) { try { Setup.Launch(); } catch { } }
+            if (runBox.Checked)
+            {
+                try { Setup.Launch(); }
+                catch (Exception ex)
+                {
+                    Setup.LogSetup("starting MemBall failed: " + ex);
+                    MessageBox.Show(this, Lang.T("setup.failed", ex.Message), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
             Close();
             return;
         }
@@ -366,6 +450,7 @@ class SetupForm : SetupWindow
         }
         catch (Exception ex)
         {
+            Setup.LogSetup("install failed: " + ex);
             status.Visible = false;
             MessageBox.Show(this, Lang.T("setup.failed", ex.Message), Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
             install.Enabled = cancel.Enabled = autoBox.Enabled = desktopBox.Enabled = true;
@@ -431,6 +516,7 @@ class UninstallForm : SetupWindow
         }
         catch (Exception ex)
         {
+            Setup.LogSetup("uninstall failed: " + ex);
             Cursor = Cursors.Default;
             MessageBox.Show(this, Lang.T("uninst.failed", ex.Message), Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
             go.Enabled = cancel.Enabled = dataBox.Enabled = true;
