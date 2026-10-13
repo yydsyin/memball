@@ -13,11 +13,12 @@ Une boule flottante pour Windows : elle affiche la mémoire utilisée et le déb
 - **Anneau de mémoire** : mémoire utilisée en pourcentage, en direct ; bleu sous 60 %, orange de 60 à 80 %, rouge au-delà de 80 %
 - **Débit réseau** : envoi et réception
 - **Nettoyage en un clic** : cliquez sur la boule pour réduire les jeux de travail des programmes ; elle indique la quantité de mémoire libérée
+- **Nettoyage programmé** : en option, toutes les 5 à 720 minutes ; un nettoyage prévu pendant un jeu ou une vidéo en plein écran attend la fin
 - **Ancrage au bord** : déposez-la près du bord gauche ou droit de l'écran et elle s'y accroche ; quand la souris s'éloigne, elle se rentre en une fine barre qui affiche toujours la mémoire utilisée, et ressort quand la souris touche le bord
 - **Masquée en plein écran** : elle s'efface quand un jeu, une vidéo ou une autre application en plein écran est au premier plan
 - **Menu du clic droit** : mémoire en Go, les cinq programmes qui utilisent le plus de mémoire (que vous pouvez arrêter depuis le menu), Gestionnaire des tâches
 - **Icône de la zone de notification** : affiche la mémoire utilisée ; double-cliquez dessus pour masquer ou afficher la boule
-- **Paramètres** : langue (English / 简体中文 / Français), lancement au démarrage de Windows, masquage en plein écran, rentrée dans le bord, opacité, recherche automatique des mises à jour
+- **Paramètres** : langue (English / 简体中文 / Français), lancement au démarrage de Windows, masquage en plein écran, rentrée dans le bord, nettoyage programmé, opacité, recherche automatique des mises à jour
 - **Mises à jour** : vous prévient quand une nouvelle version sort et se met à jour en un clic après confirmation
 
 ## Téléchargement et installation

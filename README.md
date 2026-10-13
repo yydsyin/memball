@@ -13,11 +13,12 @@ A floating memory ball for Windows: it shows memory use and live network speed a
 - **Memory ring**: live memory use in percent; blue below 60%, orange from 60 to 80%, red above 80%
 - **Network speed**: upload and download
 - **One-click clean**: click the ball to trim the working sets of running programs; it shows how much memory was freed
+- **Scheduled cleaning**: optionally clean every 5 to 720 minutes; a clean that falls due during a full-screen game or video waits until it ends
 - **Edge docking**: drop it near the left or right screen edge and it snaps there; when the mouse leaves, it tucks into a thin strip that still shows memory use, and slides back out when the mouse touches the edge
 - **Hides for full screen**: fades out while a game, video or other full-screen app is in front
 - **Right-click menu**: memory in GB, the five programs using the most memory (which you can end from there), Task Manager
 - **Tray icon**: shows memory use; double-click it to hide or show the ball
-- **Settings**: language (English / 简体中文 / Français), start with Windows, hide for full screen, edge tucking, opacity, automatic update check
+- **Settings**: language (English / 简体中文 / Français), start with Windows, hide for full screen, edge tucking, scheduled cleaning, opacity, automatic update check
 - **Updates**: tells you when a new version is out and updates in one click after you confirm
 
 ## Download and install
