@@ -1,0 +1,2 @@
+# cmd.exe expects Windows line endings in batch files, also in "Download ZIP" archives
+*.bat text eol=crlf

@@ -1,0 +1,13 @@
+# Build output
+*.exe
+*.pdb
+
+# Debug renders (MemBall.exe --png / --menu) in the project root and exported reports
+/*.png
+MemBall-log-*.txt
+
+# Temporary files
+*.tmp
+
+# Local promotion drafts
+promo/
