@@ -1,43 +1,21 @@
-MemBall 免费软件许可协议 / MemBall Freeware License
+MIT License
 
 Copyright (c) 2026 yydsyin
 
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-【中文】
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-1. 授权：你可以免费下载、安装和使用本软件，个人或商业用途均可。
-
-2. 分发：你可以原样分发本软件的安装程序或可执行文件，但必须保持文件
-   完整未经修改、不收取任何费用，并附带本许可协议。
-
-3. 限制：不得出售或出租本软件；不得修改、反编译、反汇编本软件，或将
-   其全部或部分冒充为自己的作品。
-
-4. 免责声明：本软件按“原样”提供，不附带任何明示或暗示的担保，包括但
-   不限于适销性、特定用途适用性的担保。因使用或无法使用本软件（包括清
-   理内存、结束进程等功能）而造成的任何损失，包括但不限于数据丢失，作
-   者均不承担责任。
-
-5. 安装或使用本软件即表示你同意本协议。如不同意，请勿安装或使用。
-
-
-[English]
-
-1. Grant: You may download, install and use this software free of charge,
-   for personal or commercial purposes.
-
-2. Distribution: You may redistribute the installer or executable of this
-   software only unmodified, free of charge, and together with this license.
-
-3. Restrictions: You may not sell or rent this software, modify, decompile
-   or disassemble it, or present it, in whole or in part, as your own work.
-
-4. Disclaimer: THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
-   KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
-   THE AUTHOR BE LIABLE FOR ANY DAMAGES, INCLUDING LOSS OF DATA, ARISING
-   FROM THE USE OF OR INABILITY TO USE THIS SOFTWARE, INCLUDING ITS MEMORY
-   CLEANING AND PROCESS ENDING FEATURES.
-
-5. By installing or using this software you accept this license. If you do
-   not accept it, do not install or use this software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
