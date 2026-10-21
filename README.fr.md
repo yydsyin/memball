@@ -4,6 +4,8 @@
 
 Une boule flottante pour Windows : elle affiche la mémoire utilisée et le débit réseau en direct au bord de l'écran, et nettoie la mémoire en un clic.
 
+MemBall a été créé avec [Claude Code](https://claude.com/claude-code) : le code, l'installateur et les traductions ont été écrits par Claude, et tout l'historique des commits est public.
+
 ![MemBall en action : nettoyage, ancrage au bord, rentrée](screenshots/demo-fr.gif)
 
 ![MemBall : la boule, son menu du clic droit et les paramètres](screenshots/fr.png)
@@ -72,10 +74,20 @@ MemBall ne collecte et n'envoie aucune donnée. Son seul accès réseau est la r
 - Version installée : Paramètres → Applications → MemBall → Désinstaller ; vous pouvez aussi supprimer vos paramètres et journaux
 - Version portable : désactivez « Lancer au démarrage de Windows » dans les Paramètres, quittez MemBall, puis supprimez `MemBall.exe`
 
+## Compiler soi-même
+
+Vous n'êtes pas obligé de faire confiance à l'exe publié : vous pouvez compiler MemBall vous-même. Windows contient déjà le compilateur C# nécessaire (.NET Framework 4.x), il n'y a donc rien à installer.
+
+1. Téléchargez le code source (Code → Download ZIP) ou clonez le dépôt
+2. Double-cliquez sur `build.bat`
+3. `MemBall.exe` (portable) et `MemBall-Setup.exe` (installation) apparaissent à côté
+
+Votre version fonctionnera comme celle publiée, mais son SHA-256 sera différent, car le compilateur marque chaque compilation différemment.
+
 ## Signaler un problème
 
 Ouvrez une [issue](https://github.com/yydsyin/memball/issues). En cas d'anomalie, joignez le rapport de diagnostic obtenu par Paramètres → « Exporter le journal d'erreurs… » ; il ne contient ni votre nom d'utilisateur ni le nom de votre ordinateur.
 
 ## Licence
 
-Logiciel gratuit, voir [LICENSE](LICENSE) : utilisation gratuite et partage sans modification, sans aucune garantie.
+[MIT](LICENSE) : utilisation, modification et partage libres, sans aucune garantie.

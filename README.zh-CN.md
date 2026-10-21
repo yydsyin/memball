@@ -4,6 +4,8 @@
 
 Windows 内存悬浮球：在屏幕边上显示内存占用和实时网速，单击一下就能清理内存。
 
+MemBall 是用 [Claude Code](https://claude.com/claude-code) 做的：代码、安装程序和翻译都由 Claude 编写，完整的提交历史全部公开。
+
 ![MemBall 演示：清理、贴边、缩进](screenshots/demo-zh.gif)
 
 ![MemBall：悬浮球、右键菜单和设置](screenshots/zh.png)
@@ -72,10 +74,20 @@ MemBall 不收集、也不发送任何数据。唯一的联网行为是检查更
 - 安装版：“设置 → 应用 → MemBall → 卸载”，可以选择是否同时删除设置和日志
 - 免安装版：在设置中关闭“开机自动启动”，退出 MemBall，然后删除 `MemBall.exe`
 
+## 自己编译
+
+不想信任发布的 exe，也可以自己编译。Windows 已经自带所需的 C# 编译器（.NET Framework 4.x），不用安装任何东西。
+
+1. 下载源码（Code → Download ZIP），或克隆仓库
+2. 双击 `build.bat`
+3. 旁边会生成 `MemBall.exe`（免安装版）和 `MemBall-Setup.exe`（安装版）
+
+自己编译的版本和发布的版本功能完全一样，但 SHA-256 会不同，因为编译器每次编译都会写入不同的标记。
+
 ## 反馈问题
 
 请提交 [Issue](https://github.com/yydsyin/memball/issues)。如果遇到异常，请附上在“设置 → 导出错误日志…”中导出的诊断报告；报告中不包含你的用户名和电脑名。
 
 ## 许可
 
-免费软件，详见 [LICENSE](LICENSE)：可免费使用和原样分享，不提供任何担保。
+[MIT](LICENSE)：可免费使用、修改和分享，不提供任何担保。

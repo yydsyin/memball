@@ -4,6 +4,8 @@
 
 A floating memory ball for Windows: it shows memory use and live network speed at the edge of your screen, and cleans memory in one click.
 
+MemBall was built with [Claude Code](https://claude.com/claude-code): the code, the installer and the translations were written by Claude, and the full commit history is public.
+
 ![MemBall in action: clean, dock to the edge, tuck in](screenshots/demo-en.gif)
 
 ![MemBall: the ball, its right-click menu and settings](screenshots/en.png)
@@ -72,10 +74,20 @@ MemBall collects and sends no data. Its only network access is the update check:
 - Installer version: Settings → Apps → MemBall → Uninstall; you can choose to delete your settings and logs as well
 - Portable version: turn off "Start with Windows" in Settings, exit MemBall, then delete `MemBall.exe`
 
+## Build from source
+
+You don't have to trust the published exe: you can build MemBall yourself. Windows already includes the C# compiler it needs (.NET Framework 4.x), so there is nothing to install.
+
+1. Download the source (Code → Download ZIP) or clone the repository
+2. Double-click `build.bat`
+3. `MemBall.exe` (portable) and `MemBall-Setup.exe` (installer) appear next to it
+
+Your build will work the same as the published one, but its SHA-256 will differ, because the compiler stamps every build differently.
+
 ## Reporting a problem
 
 Please open an [issue](https://github.com/yydsyin/memball/issues). If something went wrong, attach the diagnostics report from Settings → "Export error log…"; it does not contain your user name or computer name.
 
 ## License
 
-Freeware, see [LICENSE](LICENSE): free to use and to share unmodified, provided without any warranty.
+[MIT](LICENSE): free to use, change and share, provided without any warranty.
