@@ -90,6 +90,17 @@ Votre version fonctionnera comme celle publiée, mais son SHA-256 sera différen
 
 Ouvrez une [issue](https://github.com/yydsyin/memball/issues). En cas d'anomalie, joignez le rapport de diagnostic obtenu par Paramètres → « Exporter le journal d'erreurs… » ; il ne contient ni votre nom d'utilisateur ni le nom de votre ordinateur.
 
+## Politique de signature du code (Code signing policy)
+
+La signature est en cours de mise en place : les versions publiées ne sont pas encore signées.
+
+Signature de code gratuite fournie par [SignPath.io](https://signpath.io), certificat délivré par [SignPath Foundation](https://signpath.org).
+
+- Contributeurs et relecteurs : [yydsyin](https://github.com/yydsyin)
+- Approbateurs : [yydsyin](https://github.com/yydsyin)
+
+Confidentialité : MemBall ne transmet aucune information à d'autres systèmes en réseau, à part la recherche quotidienne de mises à jour sur l'API publique de GitHub, que vous pouvez désactiver dans les Paramètres.
+
 ## Licence
 
 [MIT](LICENSE) : utilisation, modification et partage libres, sans aucune garantie.

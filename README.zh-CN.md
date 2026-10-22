@@ -90,6 +90,17 @@ MemBall 不收集、也不发送任何数据。唯一的联网行为是检查更
 
 请提交 [Issue](https://github.com/yydsyin/memball/issues)。如果遇到异常，请附上在“设置 → 导出错误日志…”中导出的诊断报告；报告中不包含你的用户名和电脑名。
 
+## 代码签名政策（Code signing policy）
+
+签名正在申请中：目前发布的文件还没有签名。
+
+免费代码签名由 [SignPath.io](https://signpath.io) 提供，证书由 [SignPath Foundation](https://signpath.org) 签发。
+
+- 提交者和审核者：[yydsyin](https://github.com/yydsyin)
+- 批准者：[yydsyin](https://github.com/yydsyin)
+
+隐私：除了每天向 GitHub 公开接口检查一次更新（可以在设置中关闭），MemBall 不会向任何网络系统发送信息。
+
 ## 许可
 
 [MIT](LICENSE)：可免费使用、修改和分享，不提供任何担保。

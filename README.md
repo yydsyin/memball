@@ -90,6 +90,17 @@ Your build will work the same as the published one, but its SHA-256 will differ,
 
 Please open an [issue](https://github.com/yydsyin/memball/issues). If something went wrong, attach the diagnostics report from Settings → "Export error log…"; it does not contain your user name or computer name.
 
+## Code signing policy
+
+Signing is being set up: the releases are not signed yet.
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+- Committers and reviewers: [yydsyin](https://github.com/yydsyin)
+- Approvers: [yydsyin](https://github.com/yydsyin)
+
+Privacy: MemBall does not transfer any information to other networked systems, except for the daily update check against GitHub's public API, which you can turn off in Settings.
+
 ## License
 
 [MIT](LICENSE): free to use, change and share, provided without any warranty.
