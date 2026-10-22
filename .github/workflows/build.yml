@@ -1,0 +1,45 @@
+# Builds MemBall.exe and MemBall-Setup.exe on a clean GitHub-hosted Windows machine with build.bat, using only the
+# C# compiler that ships with Windows (.NET Framework 4.x). The exes and their SHA-256 are kept as a build artifact,
+# so anyone can see that a release was built from this exact source.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out the source
+        uses: actions/checkout@v4
+
+      - name: Build with build.bat
+        shell: cmd
+        run: build.bat
+
+      - name: Show version and SHA-256
+        shell: pwsh
+        run: |
+          foreach ($f in 'MemBall.exe', 'MemBall-Setup.exe') {
+            $v = (Get-Item $f).VersionInfo.ProductVersion
+            $h = (Get-FileHash $f -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$f  version $v  sha256 $h"
+            "$h  $f" | Out-File -Append -Encoding ascii SHA256SUMS.txt
+          }
+
+      - name: Keep the exes
+        uses: actions/upload-artifact@v4
+        with:
+          name: MemBall-build-${{ github.run_number }}
+          path: |
+            MemBall.exe
+            MemBall-Setup.exe
+            SHA256SUMS.txt
+          if-no-files-found: error
