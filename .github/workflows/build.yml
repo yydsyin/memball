@@ -18,7 +18,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out the source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Build with build.bat
         shell: cmd
@@ -35,7 +35,7 @@ jobs:
           }
 
       - name: Keep the exes
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: MemBall-build-${{ github.run_number }}
           path: |
