@@ -36,7 +36,7 @@ MemBall 是用 [Claude Code](https://claude.com/claude-code) 做的：代码、�
 
 > 程序没有数字签名，首次运行时 Windows SmartScreen 可能提示“Windows 已保护你的电脑”。点击“更多信息”，再点“仍要运行”即可。
 
-VirusTotal 扫描结果：[MemBall.exe](https://www.virustotal.com/gui/file/278f28444bc3000d3a429f89d4a4584a1c5280f3c272346a25a852a8308b4190)、[MemBall-Setup.exe](https://www.virustotal.com/gui/file/b66646d8d722d2e85ebc06b2edffe955bcf1e3fd69f834aeeeaf8a38fb9ddaea)。卡巴斯基、ESET、BitDefender、Avast 等大多数主流引擎均未报毒。Microsoft Defender 目前会把安装包（不包括 MemBall.exe）报为 `Trojan:Win32/Wacatac.B!ml`，这是机器学习给出的判断；另有少数机器学习引擎会把两个文件都标为可疑。原因是 MemBall 是一个新的、没有数字签名的程序，而且会结束进程、修剪内存、创建开机计划任务。源码是公开的，你可以检查它做了什么，或者自己编译（见下文）。
+VirusTotal 扫描结果：[MemBall.exe](https://www.virustotal.com/gui/file/092737b2186d811f033a3482974d1c2d32529b9d134f8f1c30fcb8cf0371d645)、[MemBall-Setup.exe](https://www.virustotal.com/gui/file/7aab6aa212e4522fd6b9b4857bff7005c899fde0e313cd1b48e126be06296e58)。卡巴斯基、ESET、BitDefender、Avast 等大多数主流引擎均未报毒。Microsoft Defender 目前会把安装包（不包括 MemBall.exe）报为 `Trojan:Win32/Wacatac.C!ml`，这是机器学习给出的判断；另有少数机器学习引擎会把两个文件都标为可疑。原因是 MemBall 是一个新的、没有数字签名的程序，而且会结束进程、修剪内存、创建开机计划任务。源码是公开的，你可以检查它做了什么，或者自己编译（见下文）。
 
 > **智能应用控制：** 如果你的 Windows 11 开启了“智能应用控制”，MemBall 目前无法运行，自己编译的版本也一样。因为 MemBall 还没有数字签名，而智能应用控制会阻止所有未签名的应用，并且不提供手动允许的选项。其他电脑不受影响。
 
