@@ -20,7 +20,7 @@ MemBall a été créé avec [Claude Code](https://claude.com/claude-code) : le c
 - **Masquée en plein écran** : elle s'efface quand un jeu, une vidéo ou une autre application en plein écran est au premier plan
 - **Menu du clic droit** : mémoire en Go, les cinq programmes qui utilisent le plus de mémoire (que vous pouvez arrêter depuis le menu), Gestionnaire des tâches
 - **Icône de la zone de notification** : affiche la mémoire utilisée ; double-cliquez dessus pour masquer ou afficher la boule
-- **Paramètres** : langue (English / 简体中文 / Français), lancement au démarrage de Windows, masquage en plein écran, rentrée dans le bord, nettoyage programmé, opacité, recherche automatique des mises à jour
+- **Paramètres** : langue (English / 简体中文 / Français), lancement au démarrage de Windows, masquage en plein écran, rentrée dans le bord, nettoyage programmé, opacité, taille de la boule (100–200 %), recherche automatique des mises à jour
 - **Mises à jour** : vous prévient quand une nouvelle version sort et se met à jour en un clic après confirmation
 
 ## Téléchargement et installation
@@ -30,7 +30,7 @@ Téléchargez la dernière version depuis la page [Releases](https://github.com/
 | Fichier | Description |
 |---|---|
 | `MemBall-Setup.exe` | Installation : installe dans `C:\Program Files\MemBall` avec un raccourci dans le menu Démarrer ; désinstallation depuis Paramètres → Applications |
-| `MemBall.exe` | Version portable : placez-la où vous voulez et double-cliquez dessus |
+| `MemBall.exe` | Version portable : placez-la où vous voulez et double-cliquez dessus ; ses paramètres et journaux vont dans un dossier `MemBall-data` à côté d'elle, vous pouvez donc l'emporter sur une clé USB |
 
 Configuration requise : Windows 10 ou 11 (le .NET Framework 4.8 nécessaire fait déjà partie de Windows).
 
@@ -69,12 +69,12 @@ Par conséquent :
 
 ## Confidentialité
 
-MemBall ne collecte et n'envoie aucune donnée. Son seul accès réseau est la recherche de mises à jour : au plus une fois par jour, il lit le dernier numéro de version sur l'API publique de GitHub (désactivable dans les Paramètres). Les paramètres et les journaux d'erreurs restent sur votre PC, dans `%LOCALAPPDATA%\MemBall`.
+MemBall ne collecte et n'envoie aucune donnée. Son seul accès réseau est la recherche de mises à jour : au plus une fois par jour, il lit le dernier numéro de version sur l'API publique de GitHub (désactivable dans les Paramètres). Les paramètres et les journaux d'erreurs restent sur votre PC : dans `%LOCALAPPDATA%\MemBall` pour la version installée, dans `MemBall-data` à côté de `MemBall.exe` pour la version portable.
 
 ## Désinstallation
 
 - Version installée : Paramètres → Applications → MemBall → Désinstaller ; vous pouvez aussi supprimer vos paramètres et journaux
-- Version portable : désactivez « Lancer au démarrage de Windows » dans les Paramètres, quittez MemBall, puis supprimez `MemBall.exe`
+- Version portable : désactivez « Lancer au démarrage de Windows » dans les Paramètres, quittez MemBall, puis supprimez `MemBall.exe` et le dossier `MemBall-data` à côté
 
 ## Compiler soi-même
 

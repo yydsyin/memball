@@ -20,7 +20,7 @@ MemBall 是用 [Claude Code](https://claude.com/claude-code) 做的：代码、�
 - **全屏自动隐藏**：玩游戏、看视频等全屏程序在前台时自动淡出
 - **右键菜单**：内存用量（GB）、占用内存最多的 5 个程序（可在菜单中直接结束）、任务管理器
 - **托盘图标**：显示内存占用；双击可隐藏或显示悬浮球
-- **设置**：语言（English / 简体中文 / Français）、开机自动启动、全屏时自动隐藏、贴边缩进、定时清理、不透明度、自动检查更新
+- **设置**：语言（English / 简体中文 / Français）、开机自动启动、全屏时自动隐藏、贴边缩进、定时清理、不透明度、悬浮球大小（100–200%）、自动检查更新
 - **更新**：有新版本时提醒你，确认后一键更新
 
 ## 下载与安装
@@ -30,7 +30,7 @@ MemBall 是用 [Claude Code](https://claude.com/claude-code) 做的：代码、�
 | 文件 | 说明 |
 |---|---|
 | `MemBall-Setup.exe` | 安装版：安装到 `C:\Program Files\MemBall`，带开始菜单快捷方式；可在“设置 → 应用”中卸载 |
-| `MemBall.exe` | 免安装版：放在任意位置，双击运行 |
+| `MemBall.exe` | 免安装版：放在任意位置，双击运行；设置和日志保存在它旁边的 `MemBall-data` 文件夹里，可以直接放进 U 盘带走 |
 
 系统要求：Windows 10 或 11（所需的 .NET Framework 4.8 已是 Windows 自带组件）。
 
@@ -69,12 +69,12 @@ VirusTotal 扫描结果：[MemBall.exe](https://www.virustotal.com/gui/file/278f
 
 ## 隐私
 
-MemBall 不收集、也不发送任何数据。唯一的联网行为是检查更新：每天最多一次，从 GitHub 的公开接口读取最新版本号（可在设置中关闭）。设置和错误日志都保存在你电脑上的 `%LOCALAPPDATA%\MemBall`。
+MemBall 不收集、也不发送任何数据。唯一的联网行为是检查更新：每天最多一次，从 GitHub 的公开接口读取最新版本号（可在设置中关闭）。设置和错误日志都保存在你的电脑上：安装版在 `%LOCALAPPDATA%\MemBall`，免安装版在 `MemBall.exe` 旁边的 `MemBall-data` 文件夹。
 
 ## 卸载
 
 - 安装版：“设置 → 应用 → MemBall → 卸载”，可以选择是否同时删除设置和日志
-- 免安装版：在设置中关闭“开机自动启动”，退出 MemBall，然后删除 `MemBall.exe`
+- 免安装版：在设置中关闭“开机自动启动”，退出 MemBall，然后删除 `MemBall.exe` 和它旁边的 `MemBall-data` 文件夹
 
 ## 自己编译
 

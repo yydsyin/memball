@@ -20,7 +20,7 @@ MemBall was built with [Claude Code](https://claude.com/claude-code): the code, 
 - **Hides for full screen**: fades out while a game, video or other full-screen app is in front
 - **Right-click menu**: memory in GB, the five programs using the most memory (which you can end from there), Task Manager
 - **Tray icon**: shows memory use; double-click it to hide or show the ball
-- **Settings**: language (English / 简体中文 / Français), start with Windows, hide for full screen, edge tucking, scheduled cleaning, opacity, automatic update check
+- **Settings**: language (English / 简体中文 / Français), start with Windows, hide for full screen, edge tucking, scheduled cleaning, opacity, ball size (100–200%), automatic update check
 - **Updates**: tells you when a new version is out and updates in one click after you confirm
 
 ## Download and install
@@ -30,7 +30,7 @@ Download the latest version from the [Releases](https://github.com/yydsyin/memba
 | File | What it is |
 |---|---|
 | `MemBall-Setup.exe` | Installer: installs to `C:\Program Files\MemBall` with a Start menu shortcut; uninstall it from Settings → Apps |
-| `MemBall.exe` | Portable: put it anywhere and double-click it |
+| `MemBall.exe` | Portable: put it anywhere and double-click it; its settings and logs go in a `MemBall-data` folder next to it, so you can carry it on a USB drive |
 
 Requirements: Windows 10 or 11 (the .NET Framework 4.8 it needs is already part of Windows).
 
@@ -69,12 +69,12 @@ So:
 
 ## Privacy
 
-MemBall collects and sends no data. Its only network access is the update check: at most once a day it reads the latest version number from GitHub's public API (you can turn this off in Settings). Settings and error logs stay on your PC in `%LOCALAPPDATA%\MemBall`.
+MemBall collects and sends no data. Its only network access is the update check: at most once a day it reads the latest version number from GitHub's public API (you can turn this off in Settings). Settings and error logs stay on your PC: in `%LOCALAPPDATA%\MemBall` for the installed version, in `MemBall-data` next to `MemBall.exe` for the portable one.
 
 ## Uninstall
 
 - Installer version: Settings → Apps → MemBall → Uninstall; you can choose to delete your settings and logs as well
-- Portable version: turn off "Start with Windows" in Settings, exit MemBall, then delete `MemBall.exe`
+- Portable version: turn off "Start with Windows" in Settings, exit MemBall, then delete `MemBall.exe` and the `MemBall-data` folder next to it
 
 ## Build from source
 
