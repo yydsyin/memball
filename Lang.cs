@@ -93,6 +93,7 @@ static class Lang
         { "set.every",       new[] { "每隔",                         "Every",                                   "Toutes les" } },
         { "set.minutes",     new[] { "分钟",                         "min",                                     "min" } },
         { "set.opacity",     new[] { "不透明度",                     "Opacity",                                 "Opacité" } },
+        { "set.size",        new[] { "悬浮球大小",                   "Ball size",                               "Taille de la boule" } },
         { "set.hotkey",      new[] { "显示/隐藏快捷键",              "Show/hide shortcut",                      "Raccourci afficher/masquer" } },
         { "set.hotkeyNone",  new[] { "不可用（被其他程序占用）",     "Unavailable (used by another program)",   "Indisponible (utilisé par un autre programme)" } },
         { "set.export",      new[] { "导出错误日志…",                "Export error log…",                       "Exporter le journal d'erreurs…" } },

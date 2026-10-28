@@ -12,6 +12,7 @@ class Settings
     public bool Tuck = true;
     public double TuckDelaySec = 1.5;
     public int Opacity = 100;          // percent, 40..100
+    public int BallSize = 100;         // percent of the normal size, 100..200 in steps of 25
     public bool AutoClean;             // clean memory on a schedule
     public int AutoCleanMinutes = 30;  // 5..720
     public bool Welcomed;              // the first-run hint has been shown
@@ -39,6 +40,7 @@ class Settings
                 else if (k == "tuck") s.Tuck = v != "0";
                 else if (k == "tuckDelay" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) s.TuckDelaySec = d;
                 else if (k == "opacity" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) s.Opacity = (int)d;
+                else if (k == "ballSize" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) s.BallSize = (int)d;
                 else if (k == "autoClean") s.AutoClean = v == "1";
                 else if (k == "autoCleanMinutes" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) s.AutoCleanMinutes = (int)d;
                 else if (k == "welcomed") s.Welcomed = v == "1";
@@ -59,6 +61,7 @@ class Settings
         }
         s.TuckDelaySec = Math.Max(0.5, Math.Min(10, s.TuckDelaySec));
         s.Opacity = Math.Max(40, Math.Min(100, s.Opacity));
+        s.BallSize = Math.Max(100, Math.Min(200, (s.BallSize + 12) / 25 * 25));
         s.AutoCleanMinutes = Math.Max(5, Math.Min(720, s.AutoCleanMinutes));
         return s;
     }
@@ -71,6 +74,7 @@ class Settings
             "tuck=" + (Tuck ? "1" : "0") + "\r\n" +
             "tuckDelay=" + TuckDelaySec.ToString(CultureInfo.InvariantCulture) + "\r\n" +
             "opacity=" + Opacity + "\r\n" +
+            "ballSize=" + BallSize + "\r\n" +
             "autoClean=" + (AutoClean ? "1" : "0") + "\r\n" +
             "autoCleanMinutes=" + AutoCleanMinutes + "\r\n" +
             "welcomed=" + (Welcomed ? "1" : "0") + "\r\n" +
@@ -91,7 +95,9 @@ class SettingsForm : Form
 
     readonly MemBall ball;
     Settings current;
-    readonly ComboBox langBox = new ComboBox();
+    static readonly int[] Sizes = { 100, 125, 150, 175, 200 };
+
+    readonly ComboBox langBox = new ComboBox(), sizeBox = new ComboBox();
     readonly CheckBox autoBox = new CheckBox(), fsBox = new CheckBox(), tuckBox = new CheckBox(), updBox = new CheckBox(), cleanBox = new CheckBox();
     readonly Button checkNow = new Button();
     readonly NumericUpDown delayBox = new NumericUpDown(), cleanEvery = new NumericUpDown();
@@ -180,6 +186,12 @@ class SettingsForm : Form
         opBar.ValueChanged += delegate { opValue.Text = opBar.Value + "%"; };
         Row(t, Caption(Lang.T("set.opacity")), Flow(opBar, opValue));
 
+        sizeBox.DropDownStyle = ComboBoxStyle.DropDownList;
+        foreach (int z in Sizes) sizeBox.Items.Add(z + "%");
+        sizeBox.SelectedIndex = Math.Max(0, Array.IndexOf(Sizes, cur.BallSize));
+        sizeBox.Width = P(80);
+        Row(t, Caption(Lang.T("set.size")), sizeBox);
+
         Row(t, Caption(Lang.T("set.hotkey")), Caption(hotkey ?? Lang.T("set.hotkeyNone")));
 
         Check(updBox, Lang.T("set.autoUpdate"), cur.AutoUpdate);
@@ -239,6 +251,7 @@ class SettingsForm : Form
         tuckBox.CheckedChanged += dirty;
         delayBox.ValueChanged += dirty;
         opBar.ValueChanged += dirty;
+        sizeBox.SelectedIndexChanged += dirty;
         updBox.CheckedChanged += dirty;
         cleanBox.CheckedChanged += dirty;
         cleanEvery.ValueChanged += dirty;
@@ -253,6 +266,7 @@ class SettingsForm : Form
         s.Tuck = tuckBox.Checked;
         s.TuckDelaySec = (double)delayBox.Value;
         s.Opacity = opBar.Value;
+        s.BallSize = Sizes[Math.Max(0, sizeBox.SelectedIndex)];
         s.AutoUpdate = updBox.Checked;
         s.AutoClean = cleanBox.Checked;
         s.AutoCleanMinutes = (int)cleanEvery.Value;

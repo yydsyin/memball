@@ -17,9 +17,9 @@ using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyTitle("MemBall")]
 [assembly: System.Reflection.AssemblyProduct("MemBall")]
 [assembly: System.Reflection.AssemblyDescription("Floating memory ball")]
-[assembly: System.Reflection.AssemblyVersion("1.1.2.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.1.2.0")]
-[assembly: System.Reflection.AssemblyInformationalVersion("1.1.2")]
+[assembly: System.Reflection.AssemblyVersion("1.2.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.2.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion("1.2.0")]
 
 class MemBall : Form
 {
@@ -72,7 +72,8 @@ class MemBall : Form
     [DllImport("user32.dll")] static extern bool UnhookWinEvent(IntPtr hook);
 
     const string TaskName = "MemBall";
-    static readonly string DataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemBall");
+    static string dataDirNote; // why a portable copy fell back to AppData; logged once the log is reachable
+    static readonly string DataDir = ResolveDataDir();
     static readonly string PosFile = Path.Combine(DataDir, "pos.txt");
     static readonly string LogFile = Path.Combine(DataDir, "error.log");
     static readonly string SettingsFile = Path.Combine(DataDir, "settings.txt");
@@ -91,14 +92,13 @@ class MemBall : Form
     // Logical layout (96 dpi units)
     const float Margin_ = 5, PanelW = 41.7f, PanelH = 160.2f, Radius = 20.85f, RadiusTop = 7.5f;
 
-    float s;
+    float s;   // pixels per layout unit: display scaling times the ball size setting
+    float dpi; // display scaling (1 = 96 dpi)
     int load;
     float shownLoad = -1;
     double upBps, downBps;
     Dictionary<string, long[]> lastNic; // adapter id -> { bytes sent, bytes received } at lastTick
     DateTime lastTick;
-    // Overall size relative to the logical layout below.
-    const float Zoom = 1f;
 
     // Clean animation state
     volatile bool cleanWorkDone;
@@ -142,7 +142,10 @@ class MemBall : Form
 
     MemBall()
     {
-        using (Graphics g = CreateGraphics()) s = g.DpiX / 96f * Zoom;
+        settings = Settings.Load(SettingsFile);
+        Lang.Code = Lang.Resolve(settings.Language);
+        using (Graphics g = CreateGraphics()) dpi = g.DpiX / 96f;
+        s = dpi * settings.BallSize / 100f;
         FormBorderStyle = FormBorderStyle.None;
         // ShowInTaskbar = false would make WinForms give the form a hidden owner window, and an owned window
         // cannot be topmost on its own (it ended up buried under maximized windows). WS_EX_TOOLWINDOW in
@@ -152,9 +155,6 @@ class MemBall : Form
         StartPosition = FormStartPosition.Manual;
         Size = new Size(S((double)(PanelW + Margin_ * 2)), S((double)(PanelH + Margin_ * 2)));
         Location = LoadPos();
-
-        settings = Settings.Load(SettingsFile);
-        Lang.Code = Lang.Resolve(settings.Language);
 
         ContextMenuStrip menu = new ContextMenuStrip();
         cleanItem = new ToolStripMenuItem("", null, delegate { Clean(); });
@@ -1545,6 +1545,7 @@ class MemBall : Form
         // Turning the schedule on or changing its interval starts a fresh countdown.
         if (s.AutoClean && (!settings.AutoClean || s.AutoCleanMinutes != settings.AutoCleanMinutes))
             nextAutoClean = DateTime.UtcNow.AddMinutes(s.AutoCleanMinutes);
+        bool resize = s.BallSize != settings.BallSize;
         settings = s;
         bool saved = true;
         try { settings.Save(SettingsFile); }
@@ -1552,11 +1553,23 @@ class MemBall : Form
         SetAutostart(autostart);
         Lang.Code = Lang.Resolve(settings.Language);
         ApplyLanguage();
+        if (resize) ApplyBallSize();
         if (!settings.Tuck) Untuck();
         UpdateVisibility();
         UpdateTray();
         Render();
         return saved;
+    }
+
+    // A new ball size: the window grows or shrinks around the panel's centre, stays on its docked edge and on screen.
+    void ApplyBallSize()
+    {
+        Point c = new Point(Left + Width / 2, Top + Height / 2);
+        s = dpi * settings.BallSize / 100f;
+        Size = new Size(S((double)(PanelW + Margin_ * 2)), S((double)(PanelH + Margin_ * 2)));
+        MoveTo(c.X - Width / 2, c.Y - Height / 2);
+        SavePos();
+        Render();
     }
 
     // Plain "schtasks /create" would not start the task on battery, stop it when unplugged and kill it
@@ -1725,7 +1738,8 @@ class MemBall : Form
         MEMSTATUS m = new MEMSTATUS();
         if (GlobalMemoryStatusEx(m))
             sb.AppendLine("Memory: " + (m.ullTotalPhys / 1073741824.0).ToString("0.0") + " GB, " + m.dwMemoryLoad + "% in use");
-        sb.AppendLine("Scaling: " + Math.Round(s / Zoom * 100) + "%");
+        sb.AppendLine("Scaling: " + Math.Round(dpi * 100) + "%, ball size " + settings.BallSize + "%");
+        sb.AppendLine("Data folder: " + DataDir + (dataDirNote != null ? " (" + dataDirNote + ")" : ""));
         foreach (Screen sc in Screen.AllScreens)
             sb.AppendLine("Display: " + sc.Bounds.Width + "x" + sc.Bounds.Height + " @ " + sc.Bounds.X + "," + sc.Bounds.Y +
                           (sc.Primary ? " (primary)" : "") + ", work area " + sc.WorkingArea);
@@ -1806,6 +1820,37 @@ class MemBall : Form
 
     static readonly object logLock = new object();
     static readonly HashSet<string> loggedOnce = new HashSet<string>();
+
+    // Installed copies keep their data in %LOCALAPPDATA%\MemBall. A portable copy (no uninstall.exe next to it) keeps it
+    // in MemBall-data next to the exe, so it travels with it; the first time, settings and position are brought over
+    // from AppData. A folder that cannot be written to (read-only drive, Program Files) falls back to AppData.
+    static string ResolveDataDir()
+    {
+        string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemBall");
+        if (Updater.IsInstalled) return appData;
+        string own = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "MemBall-data");
+        try
+        {
+            bool fresh = !Directory.Exists(own);
+            Directory.CreateDirectory(own);
+            string probe = Path.Combine(own, "write.test");
+            File.WriteAllText(probe, "");
+            File.Delete(probe);
+            if (fresh)
+                foreach (string name in new[] { "settings.txt", "pos.txt" })
+                {
+                    string from = Path.Combine(appData, name);
+                    try { if (File.Exists(from)) File.Copy(from, Path.Combine(own, name)); }
+                    catch (Exception ex) { dataDirNote = "could not bring over " + name + " from AppData: " + ex.Message; }
+                }
+            return own;
+        }
+        catch (Exception ex)
+        {
+            dataDirNote = "portable data folder not writable, using AppData: " + ex.Message;
+            return appData;
+        }
+    }
 
     static void Log(Exception ex) { Log(ex.ToString()); }
 
@@ -2029,6 +2074,7 @@ class MemBall : Form
                 catch (System.Threading.AbandonedMutexException) { }
             }
             Updater.CleanupOldExe(); // the previous exe after a portable self-update; its process is gone by now
+            if (dataDirNote != null) Log(dataDirNote);
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += OnUiException;
             AppDomain.CurrentDomain.UnhandledException += OnFatalException;
